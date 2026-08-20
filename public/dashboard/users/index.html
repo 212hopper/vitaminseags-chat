@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App users</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="nav">
+        <a href="/">Home</a>
+        <a href="/dashboard/">Dashboard</a>
+        <a href="/dashboard/remaps/">Remaps</a>
+        <a href="/dashboard/commands/">Commands</a>
+        <a href="/stats/">Stats</a>
+        <a href="/dashboard/users/" data-admin-only>Users</a>
+        <a href="/overlays/chat/">Overlay</a>
+        <a href="/login/" id="sign-out" hidden>Sign out</a>
+      </nav>
+
+      <h1>App users</h1>
+      <p class="muted">
+        Extra logins for this companion app, not Twitch accounts. The admin username and password live in
+        <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code>.
+      </p>
+
+      <section class="panel">
+        <h2>Create user</h2>
+        <form id="user-form">
+          <div class="grid">
+            <label>
+              Username
+              <input id="username" type="text" minlength="3" maxlength="32" required autocomplete="off" />
+            </label>
+            <label>
+              Password
+              <input id="password" type="password" minlength="4" maxlength="128" required autocomplete="new-password" />
+            </label>
+          </div>
+          <div class="row" style="margin-top: 1rem">
+            <button type="submit">Add user</button>
+          </div>
+          <p id="flash" class="flash"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Current users</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="3" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script src="./users.js"></script>
+    <script src="/app-nav.js"></script>
+  </body>
+</html>

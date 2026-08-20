@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat stats</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --accent: #d6ff3f;
+        --bg: #11140f;
+        --text: #f4f1ea;
+        --muted: #c8c2b6;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: Bahnschrift, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 48rem;
+        padding: 2.5rem 1.5rem;
+      }
+      a {
+        color: var(--accent);
+      }
+      .muted {
+        color: var(--muted);
+      }
+      a.user-link {
+        color: inherit;
+        text-decoration: none;
+      }
+      a.user-link:hover {
+        color: var(--accent);
+        text-decoration: underline;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1.25rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.55rem 0.4rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+      }
+      th {
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      td.count {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+      }
+      .swatch {
+        display: inline-block;
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 999px;
+        vertical-align: -0.05rem;
+        margin-right: 0.4rem;
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 20%);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>
+        <a href="/">Home</a> ·
+        <a href="/dashboard/">Dashboard</a> ·
+        <a href="/dashboard/commands/">Commands</a> ·
+        <a href="/login/" id="sign-out" hidden>Sign out</a>
+      </p>
+      <h1>Chat stats</h1>
+      <p class="muted">Click a username to read every stored message from that viewer. Counts start from when this app began saving chat. <code>!colour</code> commands are not stored.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Login</th>
+            <th>Messages</th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="3" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </main>
+    <script src="./stats.js"></script>
+    <script src="/app-nav.js"></script>
+  </body>
+</html>

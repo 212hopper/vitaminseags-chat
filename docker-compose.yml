@@ -1,0 +1,17 @@
+services:
+  companion:
+    build: .
+    container_name: vitaminseags-chat
+    restart: unless-stopped
+    ports:
+      - "30009:30009"
+    env_file:
+      - .env
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "30009"
+    volumes:
+      - chat-data:/app/data
+
+volumes:
+  chat-data:

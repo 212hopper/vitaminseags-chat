@@ -1,0 +1,185 @@
+import type { ApiClient } from "@twurple/api";
+import { EventSubWsListener } from "@twurple/eventsub-ws";
+import type { EventSubChannelChatMessageEvent } from "@twurple/eventsub-base";
+import type { EventBus, ChatFragment, ChatMessagePayload } from "../events.js";
+import type { StatusStore } from "../status.js";
+import type { UserStore } from "../store/users.js";
+import type { MessageStore } from "../store/messages.js";
+import type { SettingsStore } from "../store/settings.js";
+import type { RemapStore } from "../store/remaps.js";
+import { parseColourCommand } from "../chat/colour.js";
+import { isCommandEnabled } from "../chat/catalog.js";
+import { isChannelStaff, parseChatVisibilityCommand, parseUsernameCommand } from "../chat/commands.js";
+import { BadgeCatalog } from "./badges.js";
+import { collapseZeroWidth, EmoteCatalog, twitchEmoteUrl } from "./emotes.js";
+
+const EMOTE_REFRESH_MS = 30 * 60 * 1000;
+
+function buildFragments(
+  event: EventSubChannelChatMessageEvent,
+  emotes: EmoteCatalog,
+): ChatFragment[] {
+  const fragments: ChatFragment[] = [];
+
+  for (const part of event.messageParts) {
+    if (part.type === "emote") {
+      fragments.push({
+        type: "emote",
+        name: part.text,
+        url: twitchEmoteUrl(part.emote.id),
+      });
+      continue;
+    }
+    if (part.type === "mention") {
+      fragments.push({ type: "mention", text: part.text });
+      continue;
+    }
+    if (part.type === "cheermote") {
+      fragments.push({
+        type: "cheer",
+        text: part.text,
+        bits: part.cheermote.bits,
+      });
+      continue;
+    }
+    fragments.push(...emotes.parseText(part.text));
+  }
+
+  return collapseZeroWidth(fragments);
+}
+
+function toPayload(
+  event: EventSubChannelChatMessageEvent,
+  emotes: EmoteCatalog,
+  badges: BadgeCatalog,
+  nameColor: string | null,
+  displayName: string,
+): ChatMessagePayload {
+  return {
+    id: event.messageId,
+    user: {
+      id: event.chatterId,
+      name: event.chatterName,
+      displayName,
+      color: nameColor ?? event.color,
+    },
+    badges: badges.resolve(event.badges),
+    fragments: buildFragments(event, emotes),
+    text: event.messageText,
+    bits: event.bits,
+    isRedemption: event.isRedemption,
+  };
+}
+
+export async function startEventSub(options: {
+  api: ApiClient;
+  bus: EventBus;
+  broadcasterId: string;
+  userId: string;
+  status: StatusStore;
+  users: UserStore;
+  messages: MessageStore;
+  settings: SettingsStore;
+  remaps: RemapStore;
+}): Promise<EventSubWsListener> {
+  const { api, bus, broadcasterId, userId, status, users, messages, settings, remaps } = options;
+  const emotes = new EmoteCatalog();
+  const badges = new BadgeCatalog();
+
+  await Promise.all([emotes.refresh(broadcasterId), badges.refresh(api, broadcasterId)]);
+
+  const listener = new EventSubWsListener({ apiClient: api });
+
+  listener.onChannelChatMessage(broadcasterId, userId, (event) => {
+    const chatter = {
+      id: event.chatterId,
+      login: event.chatterName,
+      displayName: event.chatterDisplayName,
+    };
+    remaps.rememberUser(event.chatterId, event.chatterName);
+    const live = settings.snapshot();
+
+    const visibility = parseChatVisibilityCommand(event.messageText);
+    if (visibility) {
+      const commandId = visibility === "show" ? "showchat" : "hidechat";
+      if (isCommandEnabled(live.commands, commandId)) {
+        if (isChannelStaff(event)) {
+          void settings.update({ chatVisible: visibility === "show" }).then((overlay) => {
+            bus.emit({ type: "overlay.settings", payload: overlay });
+          });
+        }
+        return;
+      }
+    }
+
+    const usernameCommand = parseUsernameCommand(event.messageText);
+    if (usernameCommand && isCommandEnabled(live.commands, "username")) {
+      if (usernameCommand !== "invalid") {
+        void remaps.setSelf(
+          { id: event.chatterId, login: event.chatterName },
+          usernameCommand.alias,
+        );
+      }
+      return;
+    }
+
+    const colourCommand = parseColourCommand(event.messageText);
+    if (colourCommand && isCommandEnabled(live.commands, "colour")) {
+      if (colourCommand !== "invalid") {
+        void users.setColor(chatter, colourCommand.color);
+      }
+      return;
+    }
+
+    void users.recordMessage(chatter);
+    void messages.append({
+      id: event.messageId,
+      userId: event.chatterId,
+      login: event.chatterName,
+      displayName: event.chatterDisplayName,
+      text: event.messageText,
+      ts: Date.now(),
+    });
+
+    if (live.hideCommands && event.messageText.startsWith("!")) {
+      return;
+    }
+
+    const nameColor = users.getColor(event.chatterId);
+    const displayName =
+      remaps.resolve(event.chatterId, event.chatterName) ?? event.chatterDisplayName;
+    bus.emit({
+      type: "chat.message",
+      payload: toPayload(event, emotes, badges, nameColor, displayName),
+    });
+  });
+
+  listener.onChannelChatMessageDelete(broadcasterId, userId, (event) => {
+    bus.emit({ type: "chat.message.delete", payload: { id: event.messageId } });
+  });
+
+  listener.onChannelChatClear(broadcasterId, userId, () => {
+    bus.emit({ type: "chat.clear", payload: {} });
+  });
+
+  listener.on(listener.onUserSocketConnect, (connectedUserId) => {
+    status.patch({ eventSub: true });
+    console.log(`EventSub socket connected for user ${connectedUserId}.`);
+  });
+  listener.on(listener.onUserSocketDisconnect, (disconnectedUserId, error) => {
+    status.patch({ eventSub: false });
+    console.warn(`EventSub socket disconnected for user ${disconnectedUserId}.`, error ?? "");
+  });
+
+  listener.start();
+  console.log("EventSub listener started for channel chat.");
+
+  const timer = setInterval(() => {
+    void emotes.refresh(broadcasterId).catch((error: unknown) => {
+      console.warn("Emote refresh failed.", error);
+    });
+  }, EMOTE_REFRESH_MS);
+  timer.unref?.();
+
+  return listener;
+}

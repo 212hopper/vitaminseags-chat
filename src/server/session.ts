@@ -1,0 +1,114 @@
+import { randomBytes } from "node:crypto";
+import type { AccountRole } from "../store/accounts.js";
+
+export type SessionAccount = {
+  username: string;
+  role: AccountRole;
+};
+
+const COOKIE = "vseags_session";
+const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+type Session = SessionAccount & { expiresAt: number };
+
+export type SessionStore = {
+  create: (account: SessionAccount) => string;
+  resolve: (cookieHeader: string | undefined) => SessionAccount | null;
+  destroy: (cookieHeader: string | undefined) => void;
+};
+
+export function parseCookies(header: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!header) {
+    return out;
+  }
+  for (const part of header.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx === -1) {
+      continue;
+    }
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    try {
+      out[key] = decodeURIComponent(value);
+    } catch {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+export function createSessionStore(): SessionStore {
+  const sessions = new Map<string, Session>();
+
+  return {
+    create(account) {
+      const token = randomBytes(24).toString("hex");
+      sessions.set(token, { ...account, expiresAt: Date.now() + TTL_MS });
+      return token;
+    },
+    resolve(cookieHeader) {
+      const token = parseCookies(cookieHeader)[COOKIE];
+      if (!token) {
+        return null;
+      }
+      const session = sessions.get(token);
+      if (!session) {
+        return null;
+      }
+      if (session.expiresAt < Date.now()) {
+        sessions.delete(token);
+        return null;
+      }
+      return { username: session.username, role: session.role };
+    },
+    destroy(cookieHeader) {
+      const token = parseCookies(cookieHeader)[COOKIE];
+      if (token) {
+        sessions.delete(token);
+      }
+    },
+  };
+}
+
+export function sessionCookie(token: string, secure: boolean): string {
+  const parts = [
+    `${COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(TTL_MS / 1000)}`,
+  ];
+  if (secure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+export function clearSessionCookie(secure: boolean): string {
+  const parts = [`${COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+export function isPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/login/") ||
+    pathname === "/api/login" ||
+    pathname === "/api/logout" ||
+    pathname === "/oauth" ||
+    pathname.startsWith("/oauth/") ||
+    pathname.startsWith("/overlays/") ||
+    pathname === "/ws"
+  );
+}
+
+export function safeNextPath(raw: string | undefined): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
+    return "/";
+  }
+  return raw;
+}

@@ -1,0 +1,25 @@
+---
+description: Core model for this local Twitch companion — read before adding features
+alwaysApply: true
+---
+
+# Local stream companion
+
+This repo is a **self-hosted OBS companion** for one channel. It is not a StreamElements clone and not a multi-tenant SaaS.
+
+- One Node process (Portainer/Docker or local). Twitch → typed event bus → WebSocket → overlay pages.
+- Twitch code **emits** `AppEvent`s. Overlay code **renders** `/ws` frames. Never mix those layers.
+- New features = new EventSub listener + new `AppEvent` type + optional `public/overlays/<name>/`. Not a second container.
+- Overlay static files **are** the frontend. No separate UI service. No database until we persist more than tokens.
+- Default port **30009**. OBS URL: `PUBLIC_BASE_URL/overlays/chat/`.
+- Never commit `.env` or `data/tokens.json`.
+
+Full map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Agent summary: [AGENTS.md](AGENTS.md).
+
+```ts
+// BAD — EventSub talking to OBS
+overlaySocket.send(rawTwitchEvent)
+
+// GOOD — map, then emit
+bus.emit({ type: "chat.message", payload: toPayload(event) })
+```

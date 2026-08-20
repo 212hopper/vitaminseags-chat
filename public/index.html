@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vitaminseags-chat</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --accent: #d6ff3f;
+        --bg: #11140f;
+        --text: #f4f1ea;
+        --muted: #c8c2b6;
+        --ok: #7dffb3;
+        --wait: #ffd36a;
+        --border: color-mix(in srgb, var(--accent) 35%, transparent);
+        --panel: color-mix(in srgb, var(--accent) 8%, transparent);
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: Bahnschrift, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 48rem;
+        padding: 2.5rem 1.5rem;
+      }
+      a {
+        color: var(--accent);
+      }
+      code {
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 0.95em;
+      }
+      .status {
+        display: grid;
+        gap: 0.35rem;
+        margin: 1.25rem 0 1.5rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+      }
+      .status__label {
+        font-size: 0.75rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .status__title {
+        font-size: 1.15rem;
+        font-weight: 600;
+      }
+      .status--ready .status__title {
+        color: var(--ok);
+      }
+      .status--needs_login .status__title {
+        color: var(--wait);
+      }
+      .status__detail,
+      .muted {
+        color: var(--muted);
+        margin: 0.35rem 0 0;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        margin: 1.25rem 0;
+      }
+      .btn {
+        display: inline-block;
+        padding: 0.55rem 0.9rem;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #11140f;
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .reauth {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .pages {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+        gap: 0.75rem;
+        margin: 1.5rem 0;
+      }
+      .page-card {
+        display: block;
+        padding: 0.95rem 1rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+        color: inherit;
+        text-decoration: none;
+      }
+      .page-card strong {
+        display: block;
+        color: var(--accent);
+        margin-bottom: 0.3rem;
+      }
+      .page-card span {
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="actions" style="margin-top: 0">
+        <a href="/login/" id="sign-out" hidden>Sign out</a>
+      </p>
+      <h1>vitaminseags-chat</h1>
+      <p>Twitch companion for OBS. The chat overlay is a Browser Source pointed at this app.</p>
+
+      <section id="status" class="status" aria-live="polite">
+        <div class="status__label">Twitch</div>
+        <div id="status-title" class="status__title">Checking sign-in…</div>
+        <p id="status-detail" class="status__detail"></p>
+      </section>
+
+      <h2>Pages</h2>
+      <div class="pages">
+        <a class="page-card" href="/dashboard/">
+          <strong>Dashboard</strong>
+          <span>Live time, viewers, show/hide chat, overlay timers, font and position.</span>
+        </a>
+        <a class="page-card" href="/dashboard/remaps/">
+          <strong>Username remaps</strong>
+          <span>Joke on-screen names, edit, delete, and block a chatter from changing theirs.</span>
+        </a>
+        <a class="page-card" href="/dashboard/commands/">
+          <strong>Chat commands</strong>
+          <span>List of <code>!</code> commands and enable or disable each one.</span>
+        </a>
+        <a class="page-card" href="/stats/">
+          <strong>Chat stats</strong>
+          <span>Message counts and full history per viewer.</span>
+        </a>
+        <a class="page-card" href="/dashboard/users/" data-admin-only>
+          <strong>App users</strong>
+          <span>Create extra usernames and passwords for this app.</span>
+        </a>
+        <a class="page-card" href="/overlays/chat/">
+          <strong>Chat overlay</strong>
+          <span>OBS Browser Source page. Keep this URL public for OBS.</span>
+        </a>
+        <a class="page-card" href="/login/">
+          <strong>Sign in</strong>
+          <span>App login page (not Twitch).</span>
+        </a>
+      </div>
+
+      <div class="actions">
+        <a id="auth-link" class="btn" href="/oauth" hidden>Authorize Twitch</a>
+        <a id="reauth-link" class="reauth" href="/oauth" hidden>Re-authorize Twitch</a>
+      </div>
+
+      <p class="muted">
+        Overlay URL for OBS (use 1920×1080):
+        <code id="overlay-url">/overlays/chat/</code>
+      </p>
+    </main>
+    <script src="./home.js"></script>
+    <script src="./app-nav.js"></script>
+  </body>
+</html>

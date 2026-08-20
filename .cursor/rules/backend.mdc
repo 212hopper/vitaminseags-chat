@@ -1,0 +1,23 @@
+---
+description: TypeScript backend conventions for Twitch, the event bus, and Fastify
+globs: src/**/*.ts
+alwaysApply: false
+---
+
+# Backend
+
+- ESM + Node 20. Imports use `.js` specifiers (`../events.js`).
+- Extend `AppEvent` in `src/events.ts` before emitting a new type. Names are dotted (`chat.message`, `channel.subscription`).
+- Subscribe to Twitch only in `src/twitch/eventsub.ts`. Resolve emotes/badges before emit so overlays stay dumb.
+- Twurple **8**: `provider.on(provider.onRefresh, handler)` and `listener.on(listener.onUserSocketConnect, handler)`.
+- Auth stays in `src/twitch/auth.ts`. Tokens go to `data/tokens.json`, not the client.
+- Fastify: register `/ws`, `/oauth`, `/api/*` **before** `@fastify/static`.
+- Keep secrets in env. Do not log access or refresh tokens.
+
+```ts
+// BAD
+listener.onUserSocketConnect((id) => { ... })
+
+// GOOD (Twurple 8 EventEmitter)
+listener.on(listener.onUserSocketConnect, (id) => { ... })
+```

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat commands</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="nav">
+        <a href="/">Home</a>
+        <a href="/dashboard/">Dashboard</a>
+        <a href="/dashboard/remaps/">Remaps</a>
+        <a href="/dashboard/commands/">Commands</a>
+        <a href="/stats/">Stats</a>
+        <a href="/dashboard/users/" data-admin-only>Users</a>
+        <a href="/overlays/chat/">Overlay</a>
+        <a href="/login/" id="sign-out" hidden>Sign out</a>
+      </nav>
+
+      <h1>Chat commands</h1>
+      <p class="muted">These are the <code>!</code> commands this app currently handles. Turn one off and it is treated as a normal chat message (or hidden if “hide other ! commands” is on).</p>
+
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Who</th>
+              <th>What it does</th>
+              <th>Enabled</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="4" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+        <p id="flash" class="flash"></p>
+      </section>
+    </main>
+    <script src="./commands.js"></script>
+    <script src="/app-nav.js"></script>
+  </body>
+</html>

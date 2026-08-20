@@ -1,0 +1,24 @@
+---
+description: OBS browser-source overlay conventions (vanilla HTML, safe rendering)
+globs: public/overlays/**
+alwaysApply: false
+---
+
+# Overlays
+
+OBS Browser Source is CEF (older Chromium). Keep overlays **vanilla HTML/CSS/JS**. No React/Vue build step.
+
+- One folder per overlay: `public/overlays/<name>/{index.html,style.css,overlay.js}`.
+- Transparent background. Connect to `/ws`. Reconnect with backoff.
+- Render chat with `createElement` + `textContent`. Never `innerHTML` for user content.
+- Emote/badge `src` must be `https:` URLs already resolved by the server.
+- Put look-and-feel in CSS variables. Do not hardcode Twitch fetches in overlay JS.
+- Handle `hello`, `chat.message`, `chat.message.delete`, and `chat.clear`. Ignore unknown `type`s so future events do not break chat.
+
+```js
+// BAD
+text.innerHTML = payload.text
+
+// GOOD
+text.append(document.createTextNode(fragment.text))
+```

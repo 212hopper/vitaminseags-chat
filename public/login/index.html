@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --accent: #d6ff3f;
+        --bg: #11140f;
+        --text: #f4f1ea;
+        --muted: #c8c2b6;
+        --danger: #ff8a7a;
+        --border: color-mix(in srgb, var(--accent) 35%, transparent);
+        --panel: color-mix(in srgb, var(--accent) 8%, transparent);
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: Bahnschrift, "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 24rem;
+        padding: 4rem 1.5rem 3rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      form {
+        margin-top: 1.25rem;
+        padding: 1.15rem 1.2rem 1.3rem;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--panel);
+      }
+      label {
+        display: grid;
+        gap: 0.35rem;
+        margin-bottom: 0.85rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.55rem 0.65rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #0c0e0a;
+        color: var(--text);
+        font: inherit;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      button {
+        padding: 0.55rem 0.9rem;
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #11140f;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .flash {
+        min-height: 1.2rem;
+        margin: 0.75rem 0 0;
+        color: var(--danger);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Sign in</h1>
+      <p class="muted">This app is locked so a random visitor on the port cannot open stats or controls. The OBS overlay stays public.</p>
+      <form id="login-form">
+        <label>
+          Username
+          <input id="username" name="username" type="text" autocomplete="username" required />
+        </label>
+        <label>
+          Password
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit">Sign in</button>
+        <p id="flash" class="flash"></p>
+      </form>
+    </main>
+    <script src="./login.js"></script>
+  </body>
+</html>
