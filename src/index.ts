@@ -1,6 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
 import { ApiClient } from "@twurple/api";
+import { log } from "./log.js";
 import { loadConfig } from "./config.js";
 import { createEventBus } from "./events.js";
 import { startHttpServer } from "./server/http.js";
@@ -34,7 +35,7 @@ async function main(): Promise<void> {
   );
 
   if (!config.adminUsername || !config.adminPassword) {
-    console.warn("ADMIN_USERNAME / ADMIN_PASSWORD are not set. App pages are open on the network.");
+    log.warn("ADMIN_USERNAME / ADMIN_PASSWORD are not set. App pages are open on the network.");
   }
 
   const server = await startHttpServer({
@@ -94,7 +95,7 @@ async function main(): Promise<void> {
   const stopStreamPoller = startStreamPoller(api, broadcasterId, status);
   const stopTimedMessages = startTimedMessages({ settings, status, botChat });
 
-  console.log(`Listening as user ${authedUser.name} for broadcaster ${broadcasterId}.`);
+  log.info(`Listening as user ${authedUser.name} for broadcaster ${broadcasterLogin}.`);
 
   const shutdown = async () => {
     stopStreamPoller();
@@ -112,6 +113,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  log.error("Process failed to start", error);
   process.exit(1);
 });

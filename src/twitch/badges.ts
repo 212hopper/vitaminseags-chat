@@ -1,5 +1,6 @@
 import type { ApiClient } from "@twurple/api";
 import type { ChatBadge } from "../events.js";
+import { log } from "../log.js";
 
 export class BadgeCatalog {
   #byKey = new Map<string, { url: string; title: string }>();
@@ -21,7 +22,7 @@ export class BadgeCatalog {
     }
 
     this.#byKey = next;
-    console.log(`Loaded ${next.size} chat badges.`);
+    log.info(`Loaded ${next.size} chat badges.`);
   }
 
   resolve(badges: Record<string, string>): ChatBadge[] {

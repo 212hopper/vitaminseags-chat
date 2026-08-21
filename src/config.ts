@@ -64,8 +64,25 @@ export type AppConfig = {
   refreshToken: string;
   adminUsername: string;
   adminPassword: string;
+  logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   overlay: OverlayConfig;
 };
+
+function envLogLevel(): AppConfig["logLevel"] {
+  const raw = env("LOG_LEVEL", "info").toLowerCase();
+  if (
+    raw === "fatal" ||
+    raw === "error" ||
+    raw === "warn" ||
+    raw === "info" ||
+    raw === "debug" ||
+    raw === "trace" ||
+    raw === "silent"
+  ) {
+    return raw;
+  }
+  return "info";
+}
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
@@ -94,6 +111,7 @@ export function loadConfig(): AppConfig {
     refreshToken: env("TWITCH_REFRESH_TOKEN") || env("refresh"),
     adminUsername: env("ADMIN_USERNAME"),
     adminPassword: env("ADMIN_PASSWORD"),
+    logLevel: envLogLevel(),
     overlay: {
       maxMessages: envNumber("OVERLAY_MAX_MESSAGES", 14),
       holdMs: envNumber("OVERLAY_HOLD_MS", 25_000),

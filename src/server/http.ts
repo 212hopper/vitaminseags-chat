@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import type { AppConfig } from "../config.js";
@@ -26,9 +27,10 @@ import {
   createTimedMessage,
   sanitizeTimedMessage,
 } from "../chat/timed.js";
+import { log } from "../log.js";
 import {
   clearSessionCookie,
-  createSessionStore,
+  loadSessionStore,
   isPublicPath,
   sessionCookie,
   type SessionAccount,
@@ -67,9 +69,22 @@ export async function startHttpServer(options: {
   accounts: AccountStore;
 }): Promise<FastifyInstance> {
   const { config, bus, oauth, status, users, messages, settings, remaps, accounts } = options;
-  const app = Fastify({ logger: false });
+  const app = Fastify({
+    logger: {
+      level: config.logLevel,
+      serializers: {
+        req(request) {
+          return {
+            method: request.method,
+            url: request.url,
+            host: request.headers.host,
+          };
+        },
+      },
+    },
+  });
   const clients = new Set<ClientSocket>();
-  const sessions = createSessionStore();
+  const sessions = await loadSessionStore(path.join(config.dataDir, "sessions.json"));
   const secureCookie = config.publicBaseUrl.startsWith("https://");
   const recentChat: { payload: ChatMessagePayload; ts: number }[] = [];
   const recentActivity: ActivityPayload[] = [];
@@ -78,6 +93,17 @@ export async function startHttpServer(options: {
   await app.register(websocket);
 
   app.get("/login", async (_request, reply) => reply.redirect("/login/"));
+
+  app.get("/health", async () => {
+    const snap = status.snapshot();
+    return {
+      ok: true,
+      phase: snap.phase,
+      eventSub: snap.eventSub,
+      live: snap.stream.live,
+      uptimeSec: Math.round(process.uptime()),
+    };
+  });
 
   const currentAccount = (request: FastifyRequest): SessionAccount | null => {
     if (!authEnabled(config)) {
@@ -542,11 +568,13 @@ export async function startHttpServer(options: {
   });
 
   await app.listen({ port: config.port, host: config.host });
-  console.log(`Overlay:   ${config.publicBaseUrl}/overlays/chat/`);
-  console.log(`Dashboard: ${config.publicBaseUrl}/dashboard/`);
-  if (authEnabled(config)) {
-    console.log(`Login:     ${config.publicBaseUrl}/login/`);
-  }
-  console.log(`OAuth:     ${config.publicBaseUrl}/oauth`);
+  log.info("HTTP listening", {
+    host: config.host,
+    port: config.port,
+    overlay: `${config.publicBaseUrl}/overlays/chat/`,
+    dashboard: `${config.publicBaseUrl}/dashboard/`,
+    oauth: `${config.publicBaseUrl}/oauth`,
+    health: `${config.publicBaseUrl}/health`,
+  });
   return app;
 }

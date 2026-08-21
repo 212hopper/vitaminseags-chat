@@ -10,8 +10,8 @@ This repo is a **self-hosted OBS companion** for one channel. It is not a Stream
 - One Node process (Portainer/Docker or local). Twitch → typed event bus → WebSocket → overlay pages.
 - Twitch code **emits** `AppEvent`s. Overlay code **renders** `/ws` frames. Never mix those layers.
 - New features = new EventSub listener + new `AppEvent` type + optional `public/overlays/<name>/`. Not a second container.
-- Overlay static files **are** the frontend. No separate UI service. No database until we persist more than tokens.
-- Default port **30009**. OBS URL: `PUBLIC_BASE_URL/overlays/chat/`.
+- Overlay static files **are** the frontend. Dashboard is more static pages on this same process. Settings live as JSON on the data volume (not Postgres).
+- Default port **30009**. OBS URL: `PUBLIC_BASE_URL/overlays/chat/` at **1920×1080**.
 - Never commit `.env` or `data/tokens.json`.
 
 Full map: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Agent summary: [AGENTS.md](AGENTS.md).

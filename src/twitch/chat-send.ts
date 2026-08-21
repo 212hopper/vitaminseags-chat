@@ -1,4 +1,5 @@
 import type { ApiClient } from "@twurple/api";
+import { log } from "../log.js";
 
 const PENDING_MS = 15_000;
 const ID_TTL_MS = 60_000;
@@ -59,7 +60,7 @@ export function createBotChat(api: ApiClient, broadcasterId: string, senderUserI
         }
       } catch (error) {
         dropPending(text);
-        console.warn(
+        log.warn(
           "Could not send Twitch chat reply. Re-authorize with user:write:chat, then restart.",
           error,
         );

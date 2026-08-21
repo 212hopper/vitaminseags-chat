@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
+RUN npm test
 RUN npm run build
 
 FROM node:22-alpine
@@ -16,4 +17,6 @@ COPY public ./public
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 EXPOSE 30009
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:30009/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "dist/index.js"]

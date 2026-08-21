@@ -1,4 +1,5 @@
 import type { ApiClient } from "@twurple/api";
+import { log } from "../log.js";
 import type { StatusStore } from "../status.js";
 
 const POLL_MS = 15_000;
@@ -30,7 +31,7 @@ export function startStreamPoller(
         },
       });
     } catch (error) {
-      console.warn("Stream poll failed.", error);
+      log.warn("Stream poll failed.", error);
     }
   };
 

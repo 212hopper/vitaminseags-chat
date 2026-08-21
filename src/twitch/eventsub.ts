@@ -23,6 +23,7 @@ import {
   parsePartyCommand,
   parseUsernameCommand,
 } from "../chat/commands.js";
+import { log } from "../log.js";
 import { BadgeCatalog } from "./badges.js";
 import type { BotChat } from "./chat-send.js";
 import { collapseZeroWidth, EmoteCatalog, twitchEmoteUrl } from "./emotes.js";
@@ -223,19 +224,19 @@ export async function startEventSub(options: {
 
   listener.on(listener.onUserSocketConnect, (connectedUserId) => {
     status.patch({ eventSub: true });
-    console.log(`EventSub socket connected for user ${connectedUserId}.`);
+    log.info(`EventSub socket connected for user ${connectedUserId}.`);
   });
   listener.on(listener.onUserSocketDisconnect, (disconnectedUserId, error) => {
     status.patch({ eventSub: false });
-    console.warn(`EventSub socket disconnected for user ${disconnectedUserId}.`, error ?? "");
+    log.warn(`EventSub socket disconnected for user ${disconnectedUserId}.`, error ?? "");
   });
 
   listener.start();
-  console.log("EventSub listener started for channel chat.");
+  log.info("EventSub listener started for channel chat.");
 
   const timer = setInterval(() => {
     void emotes.refresh(broadcasterId).catch((error: unknown) => {
-      console.warn("Emote refresh failed.", error);
+      log.warn("Emote refresh failed.", error);
     });
   }, EMOTE_REFRESH_MS);
   timer.unref?.();
@@ -261,7 +262,7 @@ function subscribeChannelActivity(
   userId: string,
 ): void {
   listener.on(listener.onSubscriptionCreateFailure, (_subscription, error) => {
-    console.warn("EventSub subscription failed.", error);
+    log.warn("EventSub subscription failed.", error);
   });
 
   listener.onChannelFollow(broadcasterId, userId, (event) => {

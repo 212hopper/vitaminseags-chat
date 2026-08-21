@@ -1,5 +1,6 @@
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { log } from "../log.js";
 
 export type StoredChatMessage = {
   id: string;
@@ -36,7 +37,7 @@ export async function loadMessageStore(dir: string): Promise<MessageStore> {
           await appendFile(fileFor(userId), `${JSON.stringify(message)}\n`, "utf8");
         })
         .catch((error: unknown) => {
-          console.warn("Failed to store chat message.", error);
+          log.warn("Failed to store chat message.", error);
         });
       await writing;
     },

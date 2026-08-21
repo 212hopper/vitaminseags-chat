@@ -1,108 +1,112 @@
 # vitaminseags-chat
 
-Self-hosted Twitch chat overlay for OBS. One app talks to Twitch and serves a transparent Browser Source page. v1 is **chat**; later overlays reuse the same event bus.
+Self-hosted Twitch companion for **one channel**. One Node process talks to Twitch, serves a 1920×1080 chat overlay for OBS, and hosts a dashboard for you. It is not a StreamElements clone and not a multi-tenant SaaS.
 
-For agents and later features, start with [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For agents: [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## How it runs
+## What it does
 
-This is **one Node.js container** (or a local Node process while you develop). It is not a multi-service stack yet.
-
-| Piece | What it is today |
+| Piece | What it is |
 | --- | --- |
-| App | Fastify + Twurple in one process |
-| Frontend | Static overlay pages in this same app (`/overlays/chat/`) |
-| Data | Tokens on a Docker volume (`/app/data`), not a database |
-| OBS | Browser Source pointing at this app’s URL |
+| App | One Fastify + Twurple process (Docker or `npm start`) |
+| Overlay | `PUBLIC_BASE_URL/overlays/chat/` — transparent OBS Browser Source |
+| Dashboard | Commands, timed chat, remaps, overlay layout, live activity, stats |
+| Data | JSON files on a Docker volume (`/app/data`), not Postgres |
+| Chat replies | Sent as the Twitch account you authorize (`!help`, custom `!` replies, timers) |
 
-A Postgres/database and a separate dashboard UI get added when there is something to persist (overlay settings, loyalty, a control panel). They are not required for chat.
+Twitch chat → EventSub → typed event bus → `/ws` → overlay. Overlays never call Twitch. A second overlay later is another folder under `public/overlays/`, not a second container.
 
-**OBS does not have to run on the same machine.** The stream PC loads `PUBLIC_BASE_URL/overlays/chat/` as a Browser Source. The container can live on your Portainer host.
+## Go live
 
-## Deploy with Portainer
+1. Copy [`.env.example`](.env.example) to `.env`. Set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `PUBLIC_BASE_URL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`.
+2. Add the exact Redirect URL `PUBLIC_BASE_URL/oauth/callback` on the [Twitch app](https://dev.twitch.tv/console/apps). Non-localhost usually needs **https**.
+3. `docker compose up -d --build` (or Portainer stack from this compose file).
+4. Open `PUBLIC_BASE_URL/oauth`, log in as the channel (or a bot that can read this chat), **accept every permission**, then **restart the container** if the homepage says scopes were updated.
+5. OBS → Browser Source:
+   - URL: `PUBLIC_BASE_URL/overlays/chat/`
+   - Width **1920**, height **1080**
+   - Leave **Shutdown source when not visible** unchecked
+   - Allow the source to **control audio** if you want `!party` sound
+6. Overlay URL stays public so OBS can load it. Dashboard/stats/home require app login when `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set.
 
-1. Copy [`.env.example`](.env.example) to `.env` on the host (or paste the same keys into the Portainer stack env).
-2. Set at least `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, and `TWITCH_CHANNEL`.
-3. Set `PUBLIC_BASE_URL` to the URL you will open in a browser and in OBS, with no trailing slash. Examples:
-   - LAN: `http://192.168.1.50:30009`
-   - Reverse proxy: `https://chat.example.com`
-4. Set `TWITCH_REDIRECT_URI` to `PUBLIC_BASE_URL/oauth/callback` (or leave it unset to derive it).
-5. In the [Twitch developer console](https://dev.twitch.tv/console/apps), add that **exact** Redirect URL. Twitch allows `http://localhost` without TLS; any other host usually needs **https**.
-6. In Portainer: **Stacks → Add stack**, deploy this repo’s [`docker-compose.yml`](docker-compose.yml) (Git or copied compose). Build from the Dockerfile in the repo.
-7. Open `PUBLIC_BASE_URL/oauth`, log in as the account that should **read** chat, and allow access. Tokens land on the `chat-data` volume.
-8. In OBS: **Sources → Add → Browser**, URL `PUBLIC_BASE_URL/overlays/chat/`, width ~400, height = canvas height. Leave **Shutdown source when not visible** unchecked.
+If you change Twitch scopes (or see missing-permission warnings), Re-authorize Twitch, accept every tick, then restart.
 
-To run the same compose on the host without Portainer:
+## Deploy
+
+Portainer: **Stacks → Add stack**, this repo’s [`docker-compose.yml`](docker-compose.yml), env from `.env`. Volume `chat-data` holds tokens, overlay settings, remaps, sessions, and chat stats.
 
 ```bash
 docker compose up -d --build
 ```
 
-If you put this behind Nginx Proxy Manager / Traefik / Caddy, keep `HOST=0.0.0.0` and publish or proxy port 30009. Point `PUBLIC_BASE_URL` at the public https URL.
+Health: `GET /health` (public). Compose and the image both health-check that URL. Logs are JSON lines (`LOG_LEVEL`, default `info`). Request logs do not include cookies.
 
-## Develop locally (no Docker)
-
-Install [Node.js 20+](https://nodejs.org/). From this repo:
+Local without Docker:
 
 ```bash
 copy .env.example .env
 npm install
+npm test
 npm start
 ```
 
-Use `PUBLIC_BASE_URL=http://127.0.0.1:30009` and add `http://127.0.0.1:30009/oauth/callback` (or `http://localhost:30009/oauth/callback`) on the Twitch app. Keep the terminal open. `npm run dev` restarts on save.
+`PUBLIC_BASE_URL=http://127.0.0.1:30009`. Keep the terminal open. `npm run dev` restarts on save.
 
-## OBS Browser Source notes
+## OBS notes
 
-- Start the container (or `npm start`) before going live.
+- Start the container before going live.
 - Custom CSS if the page is not transparent:
 
 ```css
 body { background-color: rgba(0, 0, 0, 0) !important; }
 ```
 
-- Restyle in `public/overlays/chat/style.css` (CSS variables at the top).
+- Layout, font, and hold/fade live on **Settings**. Chat commands, who-can-use, `!help` blurbs, and custom replies live on **Commands**. Repeating plugs live on **Timed chat**.
 
-## Environment variables
+## Pages
 
-Copy [`.env.example`](.env.example). Do not commit `.env` or token files.
+| URL | Purpose |
+| --- | --- |
+| `/overlays/chat/` | OBS chat overlay (public) |
+| `/dashboard/` | Live status, chat log, activity, Twitch player |
+| `/dashboard/settings/` | Hold, fade, font, 1080p box position |
+| `/dashboard/commands/` | Enable commands, who, `!help` text, custom replies |
+| `/dashboard/timers/` | Timed chat messages |
+| `/dashboard/remaps/` | On-screen name remaps |
+| `/stats/` | Per-viewer message counts and history |
+| `/oauth` | Twitch authorization |
+| `/health` | Liveness JSON for Docker / Portainer |
+| `/login/` | App login (not Twitch) |
+
+## Environment
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `TWITCH_CLIENT_ID` | yes | Twitch application client id |
 | `TWITCH_CLIENT_SECRET` | yes | Twitch application client secret |
-| `TWITCH_CHANNEL` | yes | Channel login (without `https://twitch.tv/`) |
-| `PUBLIC_BASE_URL` | yes on a server | Public URL of this app, no trailing slash |
-| `TWITCH_REDIRECT_URI` | no | Twitch redirect URL (default `PUBLIC_BASE_URL/oauth/callback`) |
-| `HOST` | no | Bind address (default `0.0.0.0`; keep this in Docker) |
+| `TWITCH_CHANNEL` | yes | Channel login (no `https://twitch.tv/`) |
+| `PUBLIC_BASE_URL` | yes on a server | Public URL, no trailing slash |
+| `TWITCH_REDIRECT_URI` | no | Default `PUBLIC_BASE_URL/oauth/callback` |
+| `HOST` | no | Bind address (default `0.0.0.0`) |
 | `PORT` | no | Listen port (default `30009`) |
-| `OVERLAY_MAX_MESSAGES` | no | Messages on screen (default `14`) |
-| `OVERLAY_HOLD_MS` | no | How long a message stays fully visible, in ms (default `25000`) |
-| `OVERLAY_FADE_MS` | no | How long the fade-out takes after hold, in ms (default `600`) |
-| `OVERLAY_HIDE_COMMANDS` | no | Hide `!` commands (default `true`) |
-| `TWITCH_ACCESS_TOKEN` | no | First-run seed only; prefer `/oauth` |
-| `TWITCH_REFRESH_TOKEN` | no | Pair with `TWITCH_ACCESS_TOKEN` if seeding |
+| `ADMIN_USERNAME` | recommended | App login |
+| `ADMIN_PASSWORD` | recommended | App login. Overlay + `/ws` + `/health` stay public |
+| `LOG_LEVEL` | no | `fatal` `error` `warn` `info` `debug` `trace` `silent` (default `info`) |
+| `OVERLAY_MAX_MESSAGES` | no | First-run default only; settings page wins after that |
+| `OVERLAY_HOLD_MS` | no | First-run default |
+| `OVERLAY_FADE_MS` | no | First-run default |
+| `OVERLAY_HIDE_COMMANDS` | no | First-run default |
 
-Existing `.env` keys `client`, `twitch`, `access`, and `refresh` still work as aliases for the `TWITCH_*` names.
+Aliases `client`, `twitch`, `access`, and `refresh` still work for the `TWITCH_*` names.
 
-OAuth scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, plus activity-feed scopes. Same account can read and send in its own chat. Re-authorize after a scope change.
+OAuth scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, `moderator:read:followers`, `channel:read:subscriptions`, `bits:read`. Chat replies are sent as the authorized account.
 
-If you change `PUBLIC_BASE_URL` or `TWITCH_REDIRECT_URI`, update the Twitch application Redirect URL to match.
+Do not commit `.env` or anything under `data/`.
 
-## How this is structured (for later features)
+## Tests
 
+```bash
+npm test
 ```
-Twitch EventSub  →  src/twitch/eventsub.ts  →  typed event bus  →  WebSocket /ws
-                                                                →  /overlays/chat
-                                                                →  future overlays
-```
 
-Events on the wire are JSON `{ type, payload, ts }`. v1 types: `hello`, `chat.message`, `chat.message.delete`, `chat.clear`.
-
-To add another overlay:
-
-1. Listen in `src/twitch/eventsub.ts` and `bus.emit` a new `type`.
-2. Add `public/overlays/<name>/`.
-3. Point a second OBS Browser Source at `PUBLIC_BASE_URL/overlays/<name>/`.
-
-A dashboard later is another route on this same container, not a second service. Add Postgres when we have durable app data beyond OAuth tokens.
+Docker build runs `npm test` then `tsc`. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, and persisted app sessions.

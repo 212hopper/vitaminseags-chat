@@ -11,7 +11,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "start:prod": "node dist/index.js",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "tsx --test src/chat/colour.test.ts src/chat/catalog.test.ts src/chat/commands.test.ts src/chat/timed.test.ts src/store/settings.test.ts src/server/session.test.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",

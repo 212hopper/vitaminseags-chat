@@ -4,6 +4,7 @@ import { RefreshingAuthProvider } from "@twurple/auth";
 import type { AccessToken } from "@twurple/auth";
 import type { AppConfig } from "../config.js";
 import { buildAuthorizeUrl, OAUTH_SCOPES } from "../config.js";
+import { log } from "../log.js";
 import type { StatusStore } from "../status.js";
 
 export function missingOAuthScopes(have: readonly string[]): string[] {
@@ -134,13 +135,13 @@ export async function createAuthProvider(
     const granted = provider.getCurrentScopesForUser(appliedId);
     const missing = missingOAuthScopes(granted);
     status.patch({ missingScopes: missing });
-    console.log(`Saved Twitch token for user ${appliedId}. Scopes: ${granted.join(", ") || "none"}`);
+    log.info(`Saved Twitch token for user ${appliedId}. Scopes: ${granted.join(", ") || "none"}`);
     if (missing.length) {
-      console.warn(
+      log.warn(
         `Token is still missing: ${missing.join(", ")}. On the Twitch consent screen, allow every permission listed.`,
       );
     } else {
-      console.log("Twitch token has every scope this app needs. Restart the container if activity EventSub still errors.");
+      log.info("Twitch token has every scope this app needs. Restart the container if activity EventSub still errors.");
     }
     return appliedId;
   };
@@ -149,8 +150,8 @@ export async function createAuthProvider(
   const authorize = async (): Promise<string> => {
     status.patch({ phase: "needs_login", user: null, eventSub: false });
     const url = buildAuthorizeUrl(config);
-    console.log(`Authorize this app in a browser:\n  ${url}\n`);
-    console.log(`Or open ${config.publicBaseUrl}/oauth`);
+    log.info(`Authorize this app in a browser:\n  ${url}`);
+    log.info(`Or open ${config.publicBaseUrl}/oauth`);
     const code = await oauth.wait();
     return applyCode(code);
   };
@@ -162,9 +163,9 @@ export async function createAuthProvider(
     try {
       userId = await provider.addUserForToken(tokens, ["chat"]);
       await persistCurrentToken(provider, config.tokenPath, userId);
-      console.log(`Loaded stored token for user ${userId}.`);
+      log.info(`Loaded stored token for user ${userId}.`);
     } catch (error) {
-      console.warn("Stored tokens failed; starting a new OAuth login.", error);
+      log.warn("Stored tokens failed; starting a new OAuth login.", error);
       userId = await authorize();
     }
   } else {
@@ -175,15 +176,15 @@ export async function createAuthProvider(
   const missing = missingOAuthScopes(scopes);
   status.patch({ missingScopes: missing });
   if (missing.length) {
-    console.warn(
+    log.warn(
       `Twitch token missing scopes: ${missing.join(", ")}. Open ${config.publicBaseUrl}/oauth, accept every permission, then restart the container.`,
     );
   } else {
-    console.log(`Twitch token scopes: ${scopes.join(", ")}`);
+    log.info(`Twitch token scopes: ${scopes.join(", ")}`);
   }
 
   if (!scopes.includes("user:read:chat")) {
-    console.warn(
+    log.warn(
       `Token is missing user:read:chat (have: ${scopes.join(", ") || "none"}). Re-authorize to grant EventSub chat access.`,
     );
     userId = await authorize();

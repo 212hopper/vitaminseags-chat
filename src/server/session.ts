@@ -1,5 +1,8 @@
 import { randomBytes } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { AccountRole } from "../store/accounts.js";
+import { log } from "../log.js";
 
 export type SessionAccount = {
   username: string;
@@ -8,6 +11,7 @@ export type SessionAccount = {
 
 const COOKIE = "vseags_session";
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const PRUNE_MS = 60 * 60 * 1000;
 
 type Session = SessionAccount & { expiresAt: number };
 
@@ -15,6 +19,7 @@ export type SessionStore = {
   create: (account: SessionAccount) => string;
   resolve: (cookieHeader: string | undefined) => SessionAccount | null;
   destroy: (cookieHeader: string | undefined) => void;
+  flush: () => Promise<void>;
 };
 
 export function parseCookies(header: string | undefined): Record<string, string> {
@@ -38,13 +43,60 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
-export function createSessionStore(): SessionStore {
+export async function loadSessionStore(filePath: string): Promise<SessionStore> {
+  await mkdir(path.dirname(filePath), { recursive: true });
   const sessions = new Map<string, Session>();
+  try {
+    const parsed = JSON.parse(await readFile(filePath, "utf8")) as Record<string, Partial<Session>>;
+    const now = Date.now();
+    for (const [token, value] of Object.entries(parsed)) {
+      if (
+        typeof token === "string" &&
+        typeof value.username === "string" &&
+        (value.role === "admin" || value.role === "user") &&
+        typeof value.expiresAt === "number" &&
+        value.expiresAt > now
+      ) {
+        sessions.set(token, {
+          username: value.username,
+          role: value.role,
+          expiresAt: value.expiresAt,
+        });
+      }
+    }
+  } catch {
+    // first run or unreadable file
+  }
+
+  let writing = Promise.resolve();
+  const persist = () => {
+    writing = writing
+      .then(async () => {
+        prune(sessions);
+        const tmp = `${filePath}.${process.pid}.tmp`;
+        await writeFile(tmp, JSON.stringify(Object.fromEntries(sessions), null, 2), "utf8");
+        await rename(tmp, filePath);
+      })
+      .catch((error: unknown) => {
+        log.warn("Failed to persist app sessions.", error);
+      });
+    return writing;
+  };
+
+  await persist();
+
+  const pruneTimer = setInterval(() => {
+    if (prune(sessions)) {
+      void persist();
+    }
+  }, PRUNE_MS);
+  pruneTimer.unref?.();
 
   return {
     create(account) {
       const token = randomBytes(24).toString("hex");
       sessions.set(token, { ...account, expiresAt: Date.now() + TTL_MS });
+      void persist();
       return token;
     },
     resolve(cookieHeader) {
@@ -58,17 +110,33 @@ export function createSessionStore(): SessionStore {
       }
       if (session.expiresAt < Date.now()) {
         sessions.delete(token);
+        void persist();
         return null;
       }
       return { username: session.username, role: session.role };
     },
     destroy(cookieHeader) {
       const token = parseCookies(cookieHeader)[COOKIE];
-      if (token) {
-        sessions.delete(token);
+      if (token && sessions.delete(token)) {
+        void persist();
       }
     },
+    flush() {
+      return persist();
+    },
   };
+}
+
+function prune(sessions: Map<string, Session>): boolean {
+  const now = Date.now();
+  let changed = false;
+  for (const [token, session] of sessions) {
+    if (session.expiresAt < now) {
+      sessions.delete(token);
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 export function sessionCookie(token: string, secure: boolean): string {
@@ -95,6 +163,7 @@ export function clearSessionCookie(secure: boolean): string {
 
 export function isPublicPath(pathname: string): boolean {
   return (
+    pathname === "/health" ||
     pathname === "/login" ||
     pathname.startsWith("/login/") ||
     pathname === "/api/login" ||

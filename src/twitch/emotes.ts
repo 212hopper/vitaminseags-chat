@@ -1,4 +1,5 @@
 import type { ChatEmote, ChatFragment } from "../events.js";
+import { log } from "../log.js";
 
 export type EmoteDef = ChatEmote & {
   zeroWidth: boolean;
@@ -17,12 +18,12 @@ async function fetchJson<T>(url: string, options?: { missingOk?: boolean }): Pro
       return null;
     }
     if (!response.ok) {
-      console.warn(`Emote fetch failed ${response.status}: ${url}`);
+      log.warn(`Emote fetch failed ${response.status}: ${url}`);
       return null;
     }
     return (await response.json()) as T;
   } catch (error) {
-    console.warn(`Emote fetch error for ${url}`, error);
+    log.warn(`Emote fetch error for ${url}`, error);
     return null;
   }
 }
@@ -159,11 +160,11 @@ export class EmoteCatalog {
     ].filter((name): name is string => name !== null);
 
     if (channelProviders.length === 0) {
-      console.log(
+      log.info(
         `Loaded ${next.size} global third-party emotes. No 7TV/BTTV/FFZ channel page for this Twitch user yet.`,
       );
     } else {
-      console.log(
+      log.info(
         `Loaded ${next.size} third-party emotes (7TV / BTTV / FFZ), including channel catalogs: ${channelProviders.join(", ")}.`,
       );
     }
