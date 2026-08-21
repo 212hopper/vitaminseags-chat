@@ -28,7 +28,7 @@ import {
   createTimedMessage,
   sanitizeTimedMessage,
 } from "../chat/timed.js";
-import { log } from "../log.js";
+import { log, pinoToAppLogStream } from "../log.js";
 import {
   clearOauthStateCookie,
   clearSessionCookie,
@@ -55,6 +55,12 @@ type ClientSocket = {
   on: (event: "close" | "error", listener: () => void) => void;
 };
 
+declare module "fastify" {
+  interface FastifyInstance {
+    flushSessions: () => Promise<void>;
+  }
+}
+
 function authEnabled(config: AppConfig): boolean {
   return Boolean(config.adminUsername && config.adminPassword);
 }
@@ -62,10 +68,6 @@ function authEnabled(config: AppConfig): boolean {
 function pathnameOf(url: string): string {
   return url.split("?")[0] ?? url;
 }
-
-export type HttpServer = FastifyInstance & {
-  flushSessions: () => Promise<void>;
-};
 
 export async function startHttpServer(options: {
   config: AppConfig;
@@ -77,11 +79,13 @@ export async function startHttpServer(options: {
   settings: SettingsStore;
   remaps: RemapStore;
   accounts: AccountStore;
-}): Promise<HttpServer> {
+}): Promise<FastifyInstance> {
   const { config, bus, oauth, status, users, messages, settings, remaps, accounts } = options;
   const app = Fastify({
+    trustProxy: config.trustProxy,
     logger: {
-      level: config.logLevel,
+      level: config.fastifyLogLevel,
+      stream: pinoToAppLogStream(),
       serializers: {
         req(request) {
           return {
@@ -522,9 +526,13 @@ export async function startHttpServer(options: {
       state?: string;
     };
     const cookieState = readOauthStateCookie(request.headers.cookie);
-    if (!oauth.matchesState(query.state) && !oauthStateMatches(cookieState, query.state)) {
+    const valid = cookieState
+      ? oauthStateMatches(cookieState, query.state)
+      : oauth.takeState(query.state);
+    if (!valid) {
       return reply.status(400).send("Invalid OAuth state");
     }
+    oauth.clearState();
     void reply.header("Set-Cookie", clearOauthStateCookie(secureCookie));
     if (query.error) {
       return reply
@@ -601,6 +609,8 @@ export async function startHttpServer(options: {
     list: false,
   });
 
+  app.decorate("flushSessions", () => sessions.flush());
+
   await app.listen({ port: config.port, host: config.host });
   log.info("HTTP listening", {
     host: config.host,
@@ -610,7 +620,5 @@ export async function startHttpServer(options: {
     oauth: `${config.publicBaseUrl}/oauth`,
     health: `${config.publicBaseUrl}/health`,
   });
-  const server = app as unknown as HttpServer;
-  server.flushSessions = () => sessions.flush();
-  return server;
+  return app;
 }

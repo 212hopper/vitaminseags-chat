@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloneCommandFlags, cloneCustomCommands, DEFAULT_COMMANDS, type CommandFlags, type CustomCommand } from "./chat/catalog.js";
 import { cloneTimedMessages, type TimedMessage } from "./chat/timed.js";
-import { parseLogLevel, type LogLevel } from "./log.js";
+import { parseLogLevel, parseFastifyLogLevel, type FastifyLogLevel, type LogLevel } from "./log.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -66,6 +66,8 @@ export type AppConfig = {
   adminUsername: string;
   adminPassword: string;
   logLevel: LogLevel;
+  fastifyLogLevel: FastifyLogLevel;
+  trustProxy: boolean;
   overlay: OverlayConfig;
 };
 
@@ -78,6 +80,7 @@ export function loadConfig(): AppConfig {
   const publicBaseUrl = stripTrailingSlash(
     env("PUBLIC_BASE_URL", `http://127.0.0.1:${port}`),
   );
+  const logLevel = parseLogLevel(env("LOG_LEVEL", "info"));
   const redirectUri = env("TWITCH_REDIRECT_URI", `${publicBaseUrl}/oauth/callback`);
 
   return {
@@ -96,7 +99,9 @@ export function loadConfig(): AppConfig {
     refreshToken: env("TWITCH_REFRESH_TOKEN") || env("refresh"),
     adminUsername: env("ADMIN_USERNAME"),
     adminPassword: env("ADMIN_PASSWORD"),
-    logLevel: parseLogLevel(env("LOG_LEVEL", "info")),
+    logLevel,
+    fastifyLogLevel: parseFastifyLogLevel(env("FASTIFY_LOG_LEVEL"), logLevel),
+    trustProxy: envBool("TRUST_PROXY", false),
     overlay: {
       maxMessages: envNumber("OVERLAY_MAX_MESSAGES", 14),
       holdMs: envNumber("OVERLAY_HOLD_MS", 25_000),
@@ -125,6 +130,8 @@ export const OAUTH_SCOPES = [
   "channel:read:subscriptions",
   "bits:read",
 ] as const;
+
+export const OAUTH_STATE_TTL_MS = 600_000;
 
 export function buildAuthorizeUrl(config: AppConfig, state: string): string {
   const url = new URL("https://id.twitch.tv/oauth2/authorize");

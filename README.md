@@ -92,6 +92,8 @@ body { background-color: rgba(0, 0, 0, 0) !important; }
 | `ADMIN_USERNAME` | recommended | App login |
 | `ADMIN_PASSWORD` | recommended | App login. Overlay + `/ws` + `/health` + `/oauth/callback` stay public |
 | `LOG_LEVEL` | no | `error` `warn` `info` (default `info`) |
+| `FASTIFY_LOG_LEVEL` | no | Pino levels including `silent` / `debug`. Defaults to `LOG_LEVEL` |
+| `TRUST_PROXY` | no | `true` only behind a reverse proxy. Leave off on a LAN host |
 | `OVERLAY_MAX_MESSAGES` | no | First-run default only; settings page wins after that |
 | `OVERLAY_HOLD_MS` | no | First-run default |
 | `OVERLAY_FADE_MS` | no | First-run default |

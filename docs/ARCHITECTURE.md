@@ -97,7 +97,8 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 ## Ops
 
 - `GET /health` returns `{ ok, phase, eventSub, live, uptimeSec }` and is public. Docker/Compose healthchecks hit it. `ok` means the HTTP server is up, not that EventSub is connected.
-- Fastify request logs omit cookies. App logs are JSON lines (`LOG_LEVEL`).
+- Fastify request logs omit cookies. App and Fastify logs share `{ ts, level, msg }` JSON (`LOG_LEVEL`, optional `FASTIFY_LOG_LEVEL`).
+- Set `TRUST_PROXY=true` only when a reverse proxy sets `X-Forwarded-For`; otherwise login rate limits key on the proxy IP.
 - App sessions persist in `data/sessions.json` (sha256 of the cookie token as the key) so a container restart does not force a dashboard re-login.
 - Chat history per user is capped at 2000 lines.
 - `restart: unless-stopped` on the compose service.

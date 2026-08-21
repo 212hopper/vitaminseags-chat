@@ -4,7 +4,7 @@ import path from "node:path";
 import { RefreshingAuthProvider } from "@twurple/auth";
 import type { AccessToken } from "@twurple/auth";
 import type { AppConfig } from "../config.js";
-import { buildAuthorizeUrl, OAUTH_SCOPES } from "../config.js";
+import { OAUTH_SCOPES, OAUTH_STATE_TTL_MS } from "../config.js";
 import { log } from "../log.js";
 import { safeEqual } from "../store/accounts.js";
 import type { StatusStore } from "../status.js";
@@ -18,18 +18,35 @@ export class OAuthWaiter {
   #buffered: string | null = null;
   #apply: ((code: string) => Promise<string>) | null = null;
   #expectedState: string | null = null;
+  #stateExpiresAt = 0;
 
   issueState(): string {
     const state = randomBytes(16).toString("hex");
     this.#expectedState = state;
+    this.#stateExpiresAt = Date.now() + OAUTH_STATE_TTL_MS;
     return state;
   }
 
-  matchesState(state: string | undefined): boolean {
-    if (!state || !this.#expectedState) {
+  takeState(state: string | undefined): boolean {
+    if (!this.#expectedState) {
       return false;
     }
-    return safeEqual(state, this.#expectedState);
+    if (Date.now() > this.#stateExpiresAt) {
+      this.#expectedState = null;
+      this.#stateExpiresAt = 0;
+      return false;
+    }
+    if (!state || !safeEqual(state, this.#expectedState)) {
+      return false;
+    }
+    this.#expectedState = null;
+    this.#stateExpiresAt = 0;
+    return true;
+  }
+
+  clearState(): void {
+    this.#expectedState = null;
+    this.#stateExpiresAt = 0;
   }
 
   bind(apply: (code: string) => Promise<string>): void {
@@ -165,10 +182,7 @@ export async function createAuthProvider(
 
   const authorize = async (): Promise<string> => {
     status.patch({ phase: "needs_login", user: null, eventSub: false });
-    const state = oauth.issueState();
-    const url = buildAuthorizeUrl(config, state);
-    log.info(`Authorize this app in a browser:\n  ${url}`);
-    log.info(`Or open ${config.publicBaseUrl}/oauth`);
+    log.info(`Authorize this app in a browser: ${config.publicBaseUrl}/oauth`);
     const code = await oauth.wait();
     return applyCode(code);
   };

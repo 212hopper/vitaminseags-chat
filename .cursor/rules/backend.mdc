@@ -11,7 +11,8 @@ alwaysApply: false
 - Subscribe to Twitch only in `src/twitch/eventsub.ts`. Resolve emotes/badges before emit so overlays stay dumb.
 - Twurple **8**: `provider.on(provider.onRefresh, handler)` and `listener.on(listener.onUserSocketConnect, handler)`.
 - Auth stays in `src/twitch/auth.ts`. Tokens go to `data/tokens.json`, not the client.
-- Fastify: register `/health`, `/ws`, `/oauth`, `/api/*` **before** `@fastify/static`. `/health`, `/overlays/*`, `/ws`, and `/oauth/callback` stay public. `/oauth` requires sign-in when app login is enabled. Rate-limit `/api/login`.
+- Fastify: register `/health`, `/ws`, `/oauth`, `/api/*` **before** `@fastify/static`. `/health`, `/overlays/*`, `/ws`, and `/oauth/callback` stay public. `/oauth` requires sign-in when app login is enabled. Rate-limit `/api/login`. Enable `trustProxy` only via `TRUST_PROXY`.
+- OAuth `state` is single-use (cookie when present, otherwise the in-memory waiter). Do not log authorize URLs that include `state`.
 - App sessions persist in `data/sessions.json` keyed by `sha256(token)`, not the raw cookie. Do not keep them only in memory.
 - Keep secrets in env. Do not log access or refresh tokens, or `Cookie` headers.
 

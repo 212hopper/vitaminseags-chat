@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log.js";
 
@@ -17,10 +17,19 @@ export type MessageStore = {
 };
 
 export const MAX_MESSAGES_PER_USER = 2_000;
-const TRIM_AFTER_BYTES = 256_000;
 
 function safeUserId(userId: string): string | null {
   return /^\d+$/.test(userId) ? userId : null;
+}
+
+export function jsonlLineCount(raw: string): number {
+  let count = 0;
+  for (const line of raw.split("\n")) {
+    if (line) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 export function capJsonlLines(raw: string, max = MAX_MESSAGES_PER_USER): string | null {
@@ -31,29 +40,34 @@ export function capJsonlLines(raw: string, max = MAX_MESSAGES_PER_USER): string 
   return `${lines.slice(-max).join("\n")}\n`;
 }
 
-export async function loadMessageStore(dir: string): Promise<MessageStore> {
+async function existingLineCount(filePath: string): Promise<number> {
+  try {
+    return jsonlLineCount(await readFile(filePath, "utf8"));
+  } catch {
+    return 0;
+  }
+}
+
+export async function loadMessageStore(
+  dir: string,
+  maxPerUser = MAX_MESSAGES_PER_USER,
+): Promise<MessageStore> {
   await mkdir(dir, { recursive: true });
   let writing: Promise<void> = Promise.resolve();
+  const counts = new Map<string, number>();
 
   const fileFor = (userId: string) => path.join(dir, `${userId}.jsonl`);
 
-  const trimIfNeeded = async (filePath: string) => {
-    try {
-      const info = await stat(filePath);
-      if (info.size < TRIM_AFTER_BYTES) {
-        return;
-      }
-      const raw = await readFile(filePath, "utf8");
-      const capped = capJsonlLines(raw);
-      if (!capped) {
-        return;
-      }
-      const tmp = `${filePath}.${process.pid}.tmp`;
-      await writeFile(tmp, capped, "utf8");
-      await rename(tmp, filePath);
-    } catch (error: unknown) {
-      log.warn("Failed to trim chat history.", error);
+  const trimToCap = async (filePath: string) => {
+    const raw = await readFile(filePath, "utf8");
+    const capped = capJsonlLines(raw, maxPerUser);
+    if (!capped) {
+      return jsonlLineCount(raw);
     }
+    const tmp = `${filePath}.${process.pid}.tmp`;
+    await writeFile(tmp, capped, "utf8");
+    await rename(tmp, filePath);
+    return maxPerUser;
   };
 
   return {
@@ -65,8 +79,15 @@ export async function loadMessageStore(dir: string): Promise<MessageStore> {
       writing = writing
         .then(async () => {
           const filePath = fileFor(userId);
+          if (!counts.has(userId)) {
+            counts.set(userId, await existingLineCount(filePath));
+          }
           await appendFile(filePath, `${JSON.stringify(message)}\n`, "utf8");
-          await trimIfNeeded(filePath);
+          const next = (counts.get(userId) ?? 0) + 1;
+          counts.set(userId, next);
+          if (next > maxPerUser) {
+            counts.set(userId, await trimToCap(filePath));
+          }
         })
         .catch((error: unknown) => {
           log.warn("Failed to store chat message.", error);
@@ -91,8 +112,10 @@ export async function loadMessageStore(dir: string): Promise<MessageStore> {
             // skip a corrupt line
           }
         }
+        counts.set(safe, messages.length);
         return messages;
       } catch {
+        counts.set(safe, 0);
         return [];
       }
     },
