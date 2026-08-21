@@ -21,6 +21,14 @@ export function parseChatVisibilityCommand(text: string): "show" | "hide" | null
   return null;
 }
 
+export function parsePartyCommand(text: string): boolean {
+  return text.trim().toLowerCase() === "!party";
+}
+
+export function parseHelpCommand(text: string): boolean {
+  return text.trim().toLowerCase() === "!help";
+}
+
 export function isChannelStaff(event: { hasBadge: (name: string) => boolean }): boolean {
   return event.hasBadge("broadcaster") || event.hasBadge("moderator");
 }

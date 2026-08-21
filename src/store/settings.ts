@@ -1,6 +1,15 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_COMMANDS, type CommandFlags, type CommandId } from "../chat/catalog.js";
+import {
+  cloneCommandFlags,
+  cloneCustomCommands,
+  DEFAULT_COMMANDS,
+  sanitizeCommandState,
+  sanitizeCustomCommands,
+  type CommandFlags,
+  type CommandId,
+} from "../chat/catalog.js";
+import { cloneTimedMessages, sanitizeTimedMessages } from "../chat/timed.js";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, DEFAULT_FONT, type OverlayConfig } from "../config.js";
 
 export type OverlaySettings = OverlayConfig;
@@ -57,9 +66,19 @@ export function sanitizeOverlaySettings(
     next.posY = clamp(next.posY, 0, CANVAS_HEIGHT - next.boxHeight);
   }
   if (partial.commands && typeof partial.commands === "object") {
-    next.commands = sanitizeCommands(partial.commands, next.commands ?? { ...DEFAULT_COMMANDS });
+    next.commands = sanitizeCommands(partial.commands, next.commands ?? cloneCommandFlags(DEFAULT_COMMANDS));
   } else if (!next.commands) {
-    next.commands = { ...DEFAULT_COMMANDS };
+    next.commands = cloneCommandFlags(DEFAULT_COMMANDS);
+  }
+  if (Array.isArray(partial.customCommands)) {
+    next.customCommands = sanitizeCustomCommands(partial.customCommands, next.customCommands ?? []);
+  } else if (!next.customCommands) {
+    next.customCommands = [];
+  }
+  if (Array.isArray(partial.timedMessages)) {
+    next.timedMessages = sanitizeTimedMessages(partial.timedMessages, next.timedMessages ?? []);
+  } else if (!next.timedMessages) {
+    next.timedMessages = [];
   }
   return next;
 }
@@ -72,14 +91,23 @@ function sanitizeFontFamily(value: string, fallback: string): string {
   return trimmed;
 }
 
-function sanitizeCommands(partial: Partial<CommandFlags>, current: CommandFlags): CommandFlags {
-  const next = { ...current };
+function sanitizeCommands(partial: Partial<CommandFlags> | Record<string, unknown>, current: CommandFlags): CommandFlags {
+  const next = cloneCommandFlags(current);
   for (const id of Object.keys(DEFAULT_COMMANDS) as CommandId[]) {
-    if (typeof partial[id] === "boolean") {
-      next[id] = partial[id];
+    if (id in partial) {
+      next[id] = sanitizeCommandState(partial[id], next[id]);
     }
   }
   return next;
+}
+
+function snapshotOf(current: OverlaySettings): OverlaySettings {
+  return {
+    ...current,
+    commands: cloneCommandFlags(current.commands),
+    customCommands: cloneCustomCommands(current.customCommands),
+    timedMessages: cloneTimedMessages(current.timedMessages),
+  };
 }
 
 export async function loadSettingsStore(
@@ -105,12 +133,12 @@ export async function loadSettingsStore(
 
   return {
     snapshot() {
-      return { ...current, commands: { ...current.commands } };
+      return snapshotOf(current);
     },
     async update(partial) {
       current = sanitizeOverlaySettings(partial, current);
       await persist();
-      return { ...current, commands: { ...current.commands } };
+      return snapshotOf(current);
     },
   };
 }

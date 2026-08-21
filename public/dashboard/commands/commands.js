@@ -1,9 +1,30 @@
 (() => {
-  const rows = document.getElementById("rows");
+  const builtinRows = document.getElementById("builtin-rows");
+  const customRows = document.getElementById("custom-rows");
+  const form = document.getElementById("custom-form");
+  const triggerInput = document.getElementById("custom-trigger");
+  const whoInput = document.getElementById("custom-who");
+  const helpInput = document.getElementById("custom-help");
+  const replyInput = document.getElementById("custom-reply");
   const flash = document.getElementById("flash");
+
+  function setFlash(message, isError) {
+    flash.classList.toggle("is-error", Boolean(isError));
+    flash.textContent = message;
+  }
 
   function whoLabel(who) {
     return who === "mods" ? "Broadcaster / mods" : "Anyone";
+  }
+
+  function emptyRow(message, cols) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = cols;
+    td.className = "muted";
+    td.textContent = message;
+    tr.append(td);
+    return tr;
   }
 
   async function readJson(url, options) {
@@ -15,59 +36,260 @@
     return body;
   }
 
-  function render(commands) {
-    rows.replaceChildren();
+  function patchCommand(id, patch) {
+    return readJson("/api/commands", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ [id]: patch }),
+    });
+  }
+
+  function whoSelect(value) {
+    const select = document.createElement("select");
+    const anyone = document.createElement("option");
+    anyone.value = "anyone";
+    anyone.textContent = "Anyone";
+    const mods = document.createElement("option");
+    mods.value = "mods";
+    mods.textContent = "Broadcaster / mods";
+    select.append(anyone, mods);
+    select.value = value === "mods" ? "mods" : "anyone";
+    return select;
+  }
+
+  function bindToggle(input, onChange) {
+    input.addEventListener("change", () => {
+      void onChange()
+        .then((body) => render(body.commands ?? []))
+        .catch((error) => {
+          input.checked = !input.checked;
+          setFlash(error.message, true);
+        });
+    });
+  }
+
+  function bindSelect(select, onChange) {
+    select.addEventListener("change", () => {
+      const previous = select.value === "mods" ? "anyone" : "mods";
+      void onChange()
+        .then((body) => {
+          render(body.commands ?? []);
+        })
+        .catch((error) => {
+          select.value = previous;
+          setFlash(error.message, true);
+        });
+    });
+  }
+
+  function bindText(input, readValue, onSave) {
+    const save = () => {
+      void onSave(readValue())
+        .then((body) => {
+          if (body) {
+            setFlash("Saved.", false);
+          }
+        })
+        .catch((error) => setFlash(error.message, true));
+    };
+    input.addEventListener("blur", save);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+  }
+
+  function renderBuiltins(commands) {
+    builtinRows.replaceChildren();
     for (const command of commands) {
       const tr = document.createElement("tr");
       const names = document.createElement("td");
       const who = document.createElement("td");
       const description = document.createElement("td");
+      const help = document.createElement("td");
       const enabled = document.createElement("td");
+      const staffHit = document.createElement("td");
 
       names.textContent = command.names.join(" / ");
-      who.textContent = whoLabel(command.who);
       description.textContent = command.description;
 
-      const toggle = document.createElement("input");
-      toggle.type = "checkbox";
-      toggle.checked = Boolean(command.enabled);
-      toggle.addEventListener("change", () => {
-        flash.classList.remove("is-error");
-        void readJson("/api/commands", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ [command.id]: toggle.checked }),
-        })
-          .then((body) => {
-            flash.textContent = toggle.checked ? `${command.names[0]} enabled.` : `${command.names[0]} disabled.`;
-            render(body.commands ?? []);
-          })
-          .catch((error) => {
-            toggle.checked = !toggle.checked;
-            flash.classList.add("is-error");
-            flash.textContent = error.message;
-          });
-      });
-      enabled.append(toggle);
+      const whoControl = whoSelect(command.who);
+      bindSelect(whoControl, () =>
+        patchCommand(command.id, { who: whoControl.value }).then((body) => {
+          setFlash(`${command.names[0]} is now ${whoLabel(whoControl.value).toLowerCase()}.`, false);
+          return body;
+        }),
+      );
+      who.append(whoControl);
 
-      tr.append(names, who, description, enabled);
-      rows.append(tr);
+      const helpField = document.createElement("input");
+      helpField.type = "text";
+      helpField.maxLength = 80;
+      helpField.value = command.chatHelp ?? "";
+      helpField.placeholder = "Shown in !help";
+      bindText(helpField, () => helpField.value, (chatHelp) =>
+        patchCommand(command.id, { chatHelp }),
+      );
+      help.append(helpField);
+
+      const enabledToggle = document.createElement("input");
+      enabledToggle.type = "checkbox";
+      enabledToggle.checked = Boolean(command.enabled);
+      bindToggle(enabledToggle, () =>
+        patchCommand(command.id, { enabled: enabledToggle.checked }).then((body) => {
+          setFlash(
+            enabledToggle.checked ? `${command.names[0]} enabled.` : `${command.names[0]} disabled.`,
+            false,
+          );
+          return body;
+        }),
+      );
+      enabled.append(enabledToggle);
+
+      if (command.hasChance) {
+        const staffToggle = document.createElement("input");
+        staffToggle.type = "checkbox";
+        staffToggle.checked = Boolean(command.staffGuarantee);
+        staffToggle.title = "When on, the broadcaster and mods skip the random roll";
+        bindToggle(staffToggle, () =>
+          patchCommand(command.id, { staffGuarantee: staffToggle.checked }).then((body) => {
+            setFlash(
+              staffToggle.checked
+                ? `${command.names[0]} always hits for mods / streamer.`
+                : `${command.names[0]} uses the normal roll for everyone.`,
+              false,
+            );
+            return body;
+          }),
+        );
+        staffHit.append(staffToggle);
+      } else {
+        staffHit.className = "muted";
+        staffHit.textContent = "—";
+      }
+
+      tr.append(names, who, description, help, enabled, staffHit);
+      builtinRows.append(tr);
     }
   }
+
+  function renderCustom(commands) {
+    customRows.replaceChildren();
+    if (!commands.length) {
+      customRows.append(emptyRow("No custom commands yet.", 6));
+      return;
+    }
+
+    for (const command of commands) {
+      const tr = document.createElement("tr");
+      const names = document.createElement("td");
+      const who = document.createElement("td");
+      const reply = document.createElement("td");
+      const help = document.createElement("td");
+      const enabled = document.createElement("td");
+      const actions = document.createElement("td");
+      actions.className = "actions";
+
+      names.textContent = command.names.join(" / ");
+
+      const whoControl = whoSelect(command.who);
+      bindSelect(whoControl, () =>
+        patchCommand(command.id, { who: whoControl.value }).then((body) => {
+          setFlash(`${command.names[0]} is now ${whoLabel(whoControl.value).toLowerCase()}.`, false);
+          return body;
+        }),
+      );
+      who.append(whoControl);
+
+      const replyField = document.createElement("textarea");
+      replyField.maxLength = 500;
+      replyField.value = command.reply ?? "";
+      bindText(replyField, () => replyField.value, (nextReply) =>
+        patchCommand(command.id, { reply: nextReply }),
+      );
+      reply.append(replyField);
+
+      const helpField = document.createElement("input");
+      helpField.type = "text";
+      helpField.maxLength = 80;
+      helpField.value = command.chatHelp ?? "";
+      helpField.placeholder = "Shown in !help";
+      bindText(helpField, () => helpField.value, (chatHelp) =>
+        patchCommand(command.id, { chatHelp }),
+      );
+      help.append(helpField);
+
+      const enabledToggle = document.createElement("input");
+      enabledToggle.type = "checkbox";
+      enabledToggle.checked = Boolean(command.enabled);
+      bindToggle(enabledToggle, () =>
+        patchCommand(command.id, { enabled: enabledToggle.checked }).then((body) => {
+          setFlash(
+            enabledToggle.checked ? `${command.names[0]} enabled.` : `${command.names[0]} disabled.`,
+            false,
+          );
+          return body;
+        }),
+      );
+      enabled.append(enabledToggle);
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "secondary";
+      remove.textContent = "Delete";
+      remove.addEventListener("click", () => {
+        void readJson(`/api/commands/${encodeURIComponent(command.id)}`, { method: "DELETE" })
+          .then((body) => {
+            setFlash(`${command.names[0]} removed.`, false);
+            render(body.commands ?? []);
+          })
+          .catch((error) => setFlash(error.message, true));
+      });
+      actions.append(remove);
+
+      tr.append(names, who, reply, help, enabled, actions);
+      customRows.append(tr);
+    }
+  }
+
+  function render(commands) {
+    renderBuiltins(commands.filter((command) => command.kind !== "custom"));
+    renderCustom(commands.filter((command) => command.kind === "custom"));
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const name = triggerInput.value.trim().replace(/^!+/, "");
+    void readJson("/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        trigger: triggerInput.value,
+        reply: replyInput.value,
+        who: whoInput.value,
+        chatHelp: helpInput.value,
+      }),
+    })
+      .then((body) => {
+        form.reset();
+        whoInput.value = "anyone";
+        setFlash(`!${name} added.`, false);
+        render(body.commands ?? []);
+      })
+      .catch((error) => setFlash(error.message, true));
+  });
 
   async function refresh() {
     try {
       const body = await readJson("/api/commands");
       render(body.commands ?? []);
     } catch {
-      rows.replaceChildren();
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 4;
-      td.className = "muted";
-      td.textContent = "Could not load commands.";
-      tr.append(td);
-      rows.append(tr);
+      builtinRows.replaceChildren();
+      customRows.replaceChildren();
+      builtinRows.append(emptyRow("Could not load commands.", 6));
+      customRows.append(emptyRow("Could not load commands.", 6));
     }
   }
 

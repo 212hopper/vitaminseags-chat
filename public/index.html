@@ -65,7 +65,17 @@
         color: var(--muted);
         margin: 0.35rem 0 0;
       }
-      .actions {
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        margin: 0 0 1.5rem;
+      }
+      .nav a[aria-current="page"] {
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+      }
         display: flex;
         flex-wrap: wrap;
         gap: 0.75rem 1.25rem;
@@ -113,9 +123,7 @@
   </head>
   <body>
     <main>
-      <p class="actions" style="margin-top: 0">
-        <a href="/login/" id="sign-out" hidden>Sign out</a>
-      </p>
+      <nav id="app-nav" class="nav"></nav>
       <h1>vitaminseags-chat</h1>
       <p>Twitch companion for OBS. The chat overlay is a Browser Source pointed at this app.</p>
 
@@ -123,13 +131,18 @@
         <div class="status__label">Twitch</div>
         <div id="status-title" class="status__title">Checking sign-in…</div>
         <p id="status-detail" class="status__detail"></p>
+        <p id="status-scopes" class="status__detail" hidden></p>
       </section>
 
       <h2>Pages</h2>
       <div class="pages">
         <a class="page-card" href="/dashboard/">
           <strong>Dashboard</strong>
-          <span>Live time, viewers, show/hide chat, overlay timers, font and position.</span>
+          <span>Live time, viewers, show/hide chat, live chat log, and Twitch activity.</span>
+        </a>
+        <a class="page-card" href="/dashboard/settings/">
+          <strong>Settings</strong>
+          <span>Hold timer, max messages, font, and 1920×1080 overlay position.</span>
         </a>
         <a class="page-card" href="/dashboard/remaps/">
           <strong>Username remaps</strong>
@@ -137,7 +150,11 @@
         </a>
         <a class="page-card" href="/dashboard/commands/">
           <strong>Chat commands</strong>
-          <span>List of <code>!</code> commands and enable or disable each one.</span>
+          <span>Enable commands, who can use them, !help text, and custom chat replies.</span>
+        </a>
+        <a class="page-card" href="/dashboard/timers/">
+          <strong>Timed chat</strong>
+          <span>Merch plugs and other messages posted every X minutes.</span>
         </a>
         <a class="page-card" href="/stats/">
           <strong>Chat stats</strong>

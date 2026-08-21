@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_COMMANDS, type CommandFlags } from "./chat/catalog.js";
+import { cloneCommandFlags, cloneCustomCommands, DEFAULT_COMMANDS, type CommandFlags, type CustomCommand } from "./chat/catalog.js";
+import { cloneTimedMessages, type TimedMessage } from "./chat/timed.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -43,6 +44,8 @@ export type OverlayConfig = {
   boxWidth: number;
   boxHeight: number;
   commands: CommandFlags;
+  customCommands: CustomCommand[];
+  timedMessages: TimedMessage[];
 };
 
 export type AppConfig = {
@@ -103,12 +106,22 @@ export function loadConfig(): AppConfig {
       posY: 200,
       boxWidth: 420,
       boxHeight: 860,
-      commands: { ...DEFAULT_COMMANDS },
+      commands: cloneCommandFlags(DEFAULT_COMMANDS),
+      customCommands: cloneCustomCommands([]),
+      timedMessages: cloneTimedMessages([]),
     },
   };
 }
 
-export const OAUTH_SCOPES = ["user:read:chat", "user:bot", "channel:bot"] as const;
+export const OAUTH_SCOPES = [
+  "user:read:chat",
+  "user:write:chat",
+  "user:bot",
+  "channel:bot",
+  "moderator:read:followers",
+  "channel:read:subscriptions",
+  "bits:read",
+] as const;
 
 export function buildAuthorizeUrl(config: AppConfig): string {
   const url = new URL("https://id.twitch.tv/oauth2/authorize");

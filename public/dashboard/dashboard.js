@@ -3,32 +3,56 @@
   const uptime = document.getElementById("uptime");
   const viewers = document.getElementById("viewers");
   const chatState = document.getElementById("chat-state");
-  const holdSeconds = document.getElementById("hold-seconds");
-  const fadeMs = document.getElementById("fade-ms");
-  const maxMessages = document.getElementById("max-messages");
-  const hideCommands = document.getElementById("hide-commands");
-  const settingsFlash = document.getElementById("settings-flash");
-  const form = document.getElementById("settings-form");
-  const layoutForm = document.getElementById("layout-form");
-  const layoutFlash = document.getElementById("layout-flash");
-  const fontPreset = document.getElementById("font-preset");
-  const fontCustom = document.getElementById("font-custom");
-  const fontCustomWrap = document.getElementById("font-custom-wrap");
-  const fontSize = document.getElementById("font-size");
-  const posX = document.getElementById("pos-x");
-  const posY = document.getElementById("pos-y");
-  const boxWidth = document.getElementById("box-width");
-  const boxHeight = document.getElementById("box-height");
-  const canvasChat = document.getElementById("canvas-chat");
+  const flash = document.getElementById("flash");
+  const chatLog = document.getElementById("chat-log");
+  const activityLog = document.getElementById("activity-log");
+  const player = document.getElementById("twitch-player");
+  const playerChannelLabel = document.getElementById("player-channel");
 
   let startedAt = null;
-  let formDirty = false;
-  let layoutDirty = false;
+  let playerChannel = "";
 
   function setText(node, value) {
     if (node) {
       node.textContent = value;
     }
+  }
+
+  function formatClock(ts) {
+    const date = new Date(ts);
+    if (!Number.isFinite(date.getTime())) {
+      return "";
+    }
+    return [date.getHours(), date.getMinutes(), date.getSeconds()]
+      .map((part) => String(part).padStart(2, "0"))
+      .join(":");
+  }
+
+  function twitchParents() {
+    const host = location.hostname;
+    const parents = new Set([host]);
+    if (host === "localhost" || host === "127.0.0.1") {
+      parents.add("localhost");
+      parents.add("127.0.0.1");
+    }
+    return [...parents];
+  }
+
+  function mountPlayer(channel) {
+    if (!player || !channel || channel === playerChannel) {
+      return;
+    }
+    playerChannel = channel;
+    setText(playerChannelLabel, `#${channel}`);
+    const params = new URLSearchParams({
+      channel,
+      muted: "true",
+      autoplay: "true",
+    });
+    for (const parent of twitchParents()) {
+      params.append("parent", parent);
+    }
+    player.src = `https://player.twitch.tv/?${params.toString()}`;
   }
 
   function formatUptime(iso) {
@@ -53,54 +77,6 @@
     setText(uptime, live && startedAt ? formatUptime(startedAt) : "—");
   }
 
-  function currentFontFamily() {
-    if (fontPreset.value === "custom") {
-      return fontCustom.value.trim();
-    }
-    return fontPreset.value;
-  }
-
-  function setFontPreset(family) {
-    const match = [...fontPreset.options].find((option) => option.value === family);
-    if (match && match.value !== "custom") {
-      fontPreset.value = family;
-      fontCustomWrap.hidden = true;
-      return;
-    }
-    fontPreset.value = "custom";
-    fontCustom.value = family ?? "";
-    fontCustomWrap.hidden = false;
-  }
-
-  function updatePreview() {
-    if (!canvasChat) {
-      return;
-    }
-    canvasChat.style.left = `${(Number(posX.value) / 1920) * 100}%`;
-    canvasChat.style.top = `${(Number(posY.value) / 1080) * 100}%`;
-    canvasChat.style.width = `${(Number(boxWidth.value) / 1920) * 100}%`;
-    canvasChat.style.height = `${(Number(boxHeight.value) / 1080) * 100}%`;
-  }
-
-  function fillSettings(overlay) {
-    if (!formDirty) {
-      holdSeconds.value = String(Math.round((overlay.holdMs ?? 0) / 1000));
-      fadeMs.value = String(overlay.fadeOutMs ?? 0);
-      maxMessages.value = String(overlay.maxMessages ?? 14);
-      hideCommands.checked = Boolean(overlay.hideCommands);
-    }
-    setText(chatState, overlay.chatVisible ? "Chat is visible" : "Chat is hidden");
-    if (!layoutDirty) {
-      setFontPreset(overlay.fontFamily ?? fontPreset.value);
-      fontSize.value = String(overlay.fontSizePx ?? 17);
-      posX.value = String(overlay.posX ?? 16);
-      posY.value = String(overlay.posY ?? 200);
-      boxWidth.value = String(overlay.boxWidth ?? 420);
-      boxHeight.value = String(overlay.boxHeight ?? 860);
-      updatePreview();
-    }
-  }
-
   async function readJson(url, options) {
     const response = await fetch(url, options);
     const body = await response.json().catch(() => ({}));
@@ -110,10 +86,114 @@
     return body;
   }
 
+  function capFeed(node) {
+    while (node.children.length > 200) {
+      node.firstElementChild?.remove();
+    }
+  }
+
+  function addChatLine(payload, ts) {
+    if (!chatLog || !payload) {
+      return;
+    }
+    const existing = chatLog.querySelector(`[data-id="${CSS.escape(payload.id)}"]`);
+    if (existing) {
+      return;
+    }
+    const row = document.createElement("div");
+    row.className = "feed__item";
+    row.dataset.id = payload.id;
+    const time = document.createElement("span");
+    time.className = "feed__time";
+    time.textContent = formatClock(ts ?? Date.now());
+    const name = document.createElement("strong");
+    name.textContent = payload.user?.displayName ?? payload.user?.name ?? "Unknown";
+    if (payload.user?.color) {
+      name.style.color = payload.user.color;
+    }
+    const text = document.createElement("span");
+    text.textContent = ` ${payload.text ?? ""}`;
+    row.append(time, name, text);
+    chatLog.append(row);
+    capFeed(chatLog);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  function removeChatLine(id) {
+    chatLog?.querySelector(`[data-id="${CSS.escape(id)}"]`)?.remove();
+  }
+
+  function addActivity(payload) {
+    if (!activityLog || !payload) {
+      return;
+    }
+    const row = document.createElement("div");
+    row.className = "feed__item";
+    const kind = document.createElement("span");
+    kind.className = "feed__kind";
+    kind.textContent = payload.kind ?? "event";
+    const text = document.createElement("span");
+    text.textContent = payload.text ?? "";
+    row.append(kind, text);
+    activityLog.append(row);
+    capFeed(activityLog);
+    activityLog.scrollTop = activityLog.scrollHeight;
+  }
+
+  function handleEvent(event) {
+    if (event.type === "hello") {
+      for (const entry of event.payload?.recentChat ?? []) {
+        addChatLine(entry.payload ?? entry, entry.ts);
+      }
+      for (const entry of event.payload?.recentActivity ?? []) {
+        addActivity(entry);
+      }
+      return;
+    }
+    if (event.type === "chat.message") {
+      addChatLine(event.payload, event.ts);
+      return;
+    }
+    if (event.type === "chat.message.delete") {
+      removeChatLine(event.payload.id);
+      return;
+    }
+    if (event.type === "channel.activity") {
+      addActivity(event.payload);
+    }
+  }
+
+  function connectFeed() {
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    let delay = 500;
+    const open = () => {
+      const socket = new WebSocket(`${protocol}://${location.host}/ws`);
+      socket.addEventListener("open", () => {
+        delay = 500;
+      });
+      socket.addEventListener("message", (message) => {
+        try {
+          handleEvent(JSON.parse(message.data));
+        } catch {
+          // ignore malformed frames
+        }
+      });
+      socket.addEventListener("close", () => {
+        window.setTimeout(open, delay);
+        delay = Math.min(delay * 2, 10_000);
+      });
+      socket.addEventListener("error", () => {
+        socket.close();
+      });
+    };
+    open();
+  }
+
   async function refreshStatus() {
     try {
       const status = await readJson("/api/status");
       renderStream(status.stream);
+      mountPlayer(status.broadcaster?.login);
     } catch {
       setText(liveState, "Unreachable");
     }
@@ -121,103 +201,42 @@
 
   async function refreshSettings() {
     try {
-      fillSettings(await readJson("/api/settings"));
+      const overlay = await readJson("/api/settings");
+      setText(chatState, overlay.chatVisible ? "Chat is visible" : "Chat is hidden");
     } catch {
-      setText(settingsFlash, "Could not load overlay settings.");
-      settingsFlash.classList.add("is-error");
+      setText(chatState, "Could not load overlay state.");
     }
   }
 
-  async function patchSettings(partial, reset) {
-    settingsFlash.classList.remove("is-error");
+  async function patchSettings(partial, message) {
+    flash.classList.remove("is-error");
     const overlay = await readJson("/api/settings", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(partial),
     });
-    if (reset === "timers") {
-      formDirty = false;
-    } else if (reset === "layout") {
-      layoutDirty = false;
-    }
-    fillSettings(overlay);
+    setText(chatState, overlay.chatVisible ? "Chat is visible" : "Chat is hidden");
+    setText(flash, message);
     return overlay;
   }
 
   document.getElementById("show-chat")?.addEventListener("click", () => {
-    void patchSettings({ chatVisible: true }).then(() => {
-      setText(settingsFlash, "Chat shown on overlay.");
+    void patchSettings({ chatVisible: true }, "Chat shown on overlay.").catch((error) => {
+      flash.classList.add("is-error");
+      setText(flash, error.message);
     });
   });
 
   document.getElementById("hide-chat")?.addEventListener("click", () => {
-    void patchSettings({ chatVisible: false }).then(() => {
-      setText(settingsFlash, "Chat hidden on overlay.");
+    void patchSettings({ chatVisible: false }, "Chat hidden on overlay.").catch((error) => {
+      flash.classList.add("is-error");
+      setText(flash, error.message);
     });
-  });
-
-  for (const input of [holdSeconds, fadeMs, maxMessages, hideCommands]) {
-    input?.addEventListener("input", () => {
-      formDirty = true;
-    });
-    input?.addEventListener("change", () => {
-      formDirty = true;
-    });
-  }
-
-  for (const input of [fontPreset, fontCustom, fontSize, posX, posY, boxWidth, boxHeight]) {
-    input?.addEventListener("input", () => {
-      layoutDirty = true;
-      updatePreview();
-    });
-    input?.addEventListener("change", () => {
-      layoutDirty = true;
-      if (input === fontPreset) {
-        fontCustomWrap.hidden = fontPreset.value !== "custom";
-      }
-      updatePreview();
-    });
-  }
-
-  form?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    void patchSettings({
-      holdMs: Math.round(Number(holdSeconds.value) * 1000),
-      fadeOutMs: Math.round(Number(fadeMs.value)),
-      maxMessages: Math.round(Number(maxMessages.value)),
-      hideCommands: hideCommands.checked,
-    }, "timers")
-      .then(() => {
-        setText(settingsFlash, "Settings saved.");
-      })
-      .catch((error) => {
-        settingsFlash.classList.add("is-error");
-        setText(settingsFlash, error.message || "Could not save settings.");
-      });
-  });
-
-  layoutForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    void patchSettings({
-      fontFamily: currentFontFamily(),
-      fontSizePx: Math.round(Number(fontSize.value)),
-      posX: Math.round(Number(posX.value)),
-      posY: Math.round(Number(posY.value)),
-      boxWidth: Math.round(Number(boxWidth.value)),
-      boxHeight: Math.round(Number(boxHeight.value)),
-    }, "layout")
-      .then(() => {
-        layoutFlash.classList.remove("is-error");
-        setText(layoutFlash, "Layout saved.");
-      })
-      .catch((error) => {
-        layoutFlash.classList.add("is-error");
-        setText(layoutFlash, error.message || "Could not save layout.");
-      });
   });
 
   void refreshStatus();
   void refreshSettings();
+  connectFeed();
   window.setInterval(() => {
     void refreshStatus();
   }, 2000);

@@ -4,7 +4,7 @@ import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import type { AppConfig } from "../config.js";
 import { buildAuthorizeUrl } from "../config.js";
-import type { EventBus } from "../events.js";
+import type { EventBus, ChatMessagePayload, ActivityPayload } from "../events.js";
 import { toWireEvent } from "../events.js";
 import type { OAuthWaiter } from "../twitch/auth.js";
 import type { StatusStore } from "../status.js";
@@ -13,7 +13,19 @@ import type { MessageStore } from "../store/messages.js";
 import type { OverlaySettings, SettingsStore } from "../store/settings.js";
 import type { RemapStore } from "../store/remaps.js";
 import { normalizeUsername, safeEqual, type AccountStore } from "../store/accounts.js";
-import { CHAT_COMMANDS, type CommandFlags } from "../chat/catalog.js";
+import {
+  cloneCustomCommands,
+  createCustomCommand,
+  isCommandId,
+  sanitizeCustomCommand,
+  serializeCommands,
+  type CommandFlags,
+} from "../chat/catalog.js";
+import {
+  cloneTimedMessages,
+  createTimedMessage,
+  sanitizeTimedMessage,
+} from "../chat/timed.js";
 import {
   clearSessionCookie,
   createSessionStore,
@@ -59,6 +71,9 @@ export async function startHttpServer(options: {
   const clients = new Set<ClientSocket>();
   const sessions = createSessionStore();
   const secureCookie = config.publicBaseUrl.startsWith("https://");
+  const recentChat: { payload: ChatMessagePayload; ts: number }[] = [];
+  const recentActivity: ActivityPayload[] = [];
+  const feedCap = 150;
 
   await app.register(websocket);
 
@@ -193,27 +208,161 @@ export async function startHttpServer(options: {
   });
 
   app.get("/api/commands", async () => {
-    const flags = settings.snapshot().commands;
-    return {
-      commands: CHAT_COMMANDS.map((command) => ({
-        ...command,
-        enabled: flags[command.id] !== false,
-      })),
-    };
+    const overlay = settings.snapshot();
+    return { commands: serializeCommands(overlay.commands, overlay.customCommands) };
   });
 
-  app.patch("/api/commands", async (request) => {
-    const body = (request.body ?? {}) as Partial<CommandFlags>;
-    const current = settings.snapshot().commands;
-    const overlay = await settings.update({ commands: { ...current, ...body } });
-    bus.emit({ type: "overlay.settings", payload: overlay });
-    const flags = overlay.commands;
-    return {
-      commands: CHAT_COMMANDS.map((command) => ({
-        ...command,
-        enabled: flags[command.id] !== false,
-      })),
+  app.post("/api/commands", async (request, reply) => {
+    const body = (request.body ?? {}) as {
+      trigger?: string;
+      reply?: string;
+      who?: string;
+      chatHelp?: string;
     };
+    const current = settings.snapshot();
+    const created = createCustomCommand({
+      trigger: body.trigger ?? "",
+      reply: body.reply ?? "",
+      who: body.who === "mods" ? "mods" : "anyone",
+      chatHelp: body.chatHelp ?? "",
+      existing: current.customCommands,
+    });
+    if ("error" in created) {
+      return reply.status(400).send({ error: created.error });
+    }
+    const overlay = await settings.update({
+      customCommands: [...current.customCommands, created],
+    });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { commands: serializeCommands(overlay.commands, overlay.customCommands) };
+  });
+
+  app.patch("/api/commands", async (request, reply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const current = settings.snapshot();
+    const commandPatch: Partial<CommandFlags> = {};
+    let custom = cloneCustomCommands(current.customCommands);
+    let customChanged = false;
+
+    for (const [key, value] of Object.entries(body)) {
+      if (isCommandId(key)) {
+        commandPatch[key] = value as CommandFlags[typeof key];
+        continue;
+      }
+      const index = custom.findIndex((item) => item.id === key);
+      if (index === -1) {
+        continue;
+      }
+      const existing = custom[index];
+      if (!existing) {
+        continue;
+      }
+      const patch = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+      const next = sanitizeCustomCommand({ ...existing, ...patch, id: key }, existing, custom);
+      if (!next) {
+        return reply.status(400).send({ error: "That custom command could not be updated." });
+      }
+      custom[index] = next;
+      customChanged = true;
+    }
+
+    const overlay = await settings.update({
+      commands: { ...current.commands, ...commandPatch },
+      ...(customChanged ? { customCommands: custom } : {}),
+    });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { commands: serializeCommands(overlay.commands, overlay.customCommands) };
+  });
+
+  app.delete("/api/commands/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    if (isCommandId(id)) {
+      return reply.status(400).send({ error: "Built-in commands cannot be deleted." });
+    }
+    const current = settings.snapshot();
+    if (!current.customCommands.some((item) => item.id === id)) {
+      return reply.status(404).send({ error: "Command not found" });
+    }
+    const overlay = await settings.update({
+      customCommands: current.customCommands.filter((item) => item.id !== id),
+    });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { commands: serializeCommands(overlay.commands, overlay.customCommands) };
+  });
+
+  app.get("/api/timers", async () => {
+    return { timers: settings.snapshot().timedMessages ?? [] };
+  });
+
+  app.post("/api/timers", async (request, reply) => {
+    const body = (request.body ?? {}) as {
+      label?: string;
+      message?: string;
+      intervalMinutes?: number;
+      liveOnly?: boolean;
+    };
+    const current = settings.snapshot();
+    const created = createTimedMessage({
+      label: body.label ?? "",
+      message: body.message ?? "",
+      intervalMinutes: body.intervalMinutes,
+      liveOnly: body.liveOnly,
+      existing: current.timedMessages ?? [],
+    });
+    if ("error" in created) {
+      return reply.status(400).send({ error: created.error });
+    }
+    const overlay = await settings.update({
+      timedMessages: [...(current.timedMessages ?? []), created],
+    });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { timers: overlay.timedMessages };
+  });
+
+  app.patch("/api/timers", async (request, reply) => {
+    const body = (request.body ?? {}) as Record<string, unknown>;
+    const current = settings.snapshot();
+    let timers = cloneTimedMessages(current.timedMessages);
+    let changed = false;
+
+    for (const [key, value] of Object.entries(body)) {
+      const index = timers.findIndex((item) => item.id === key);
+      if (index === -1) {
+        continue;
+      }
+      const existing = timers[index];
+      if (!existing) {
+        continue;
+      }
+      const patch = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+      const next = sanitizeTimedMessage({ ...existing, ...patch, id: key }, existing);
+      if (!next || !next.message) {
+        return reply.status(400).send({ error: "That timed message could not be updated." });
+      }
+      timers[index] = next;
+      changed = true;
+    }
+
+    if (!changed) {
+      return { timers };
+    }
+    const overlay = await settings.update({ timedMessages: timers });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { timers: overlay.timedMessages };
+  });
+
+  app.delete("/api/timers/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const current = settings.snapshot();
+    const timers = current.timedMessages ?? [];
+    if (!timers.some((item) => item.id === id)) {
+      return reply.status(404).send({ error: "Timed message not found" });
+    }
+    const overlay = await settings.update({
+      timedMessages: timers.filter((item) => item.id !== id),
+    });
+    bus.emit({ type: "overlay.settings", payload: overlay });
+    return { timers: overlay.timedMessages };
   });
 
   app.get("/api/config", async () => ({
@@ -330,8 +479,8 @@ export async function startHttpServer(options: {
     if (!query.code) {
       return reply.status(400).send("Missing code");
     }
-    const waiting = oauth.complete(query.code);
-    const next = waiting ? "/?auth=ok" : "/?auth=received";
+    const waiting = await oauth.complete(query.code);
+    const next = waiting === "applied" ? "/?auth=updated" : "/?auth=ok";
     return reply.redirect(next);
   });
 
@@ -341,7 +490,11 @@ export async function startHttpServer(options: {
       JSON.stringify({
         type: "hello",
         ts: Date.now(),
-        payload: { overlay: settings.snapshot() },
+        payload: {
+          overlay: settings.snapshot(),
+          recentChat,
+          recentActivity,
+        },
       }),
     );
     socket.on("close", () => {
@@ -353,6 +506,24 @@ export async function startHttpServer(options: {
   });
 
   bus.on((event) => {
+    if (event.type === "chat.message") {
+      recentChat.push({ payload: event.payload, ts: Date.now() });
+      if (recentChat.length > feedCap) {
+        recentChat.shift();
+      }
+    }
+    if (event.type === "chat.message.delete") {
+      const index = recentChat.findIndex((entry) => entry.payload.id === event.payload.id);
+      if (index >= 0) {
+        recentChat.splice(index, 1);
+      }
+    }
+    if (event.type === "channel.activity") {
+      recentActivity.push(event.payload);
+      if (recentActivity.length > feedCap) {
+        recentActivity.shift();
+      }
+    }
     const body = JSON.stringify(toWireEvent(event));
     for (const client of clients) {
       try {

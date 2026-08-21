@@ -7,33 +7,75 @@
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body>
-    <main>
-      <nav class="nav">
-        <a href="/">Home</a>
-        <a href="/dashboard/">Dashboard</a>
-        <a href="/dashboard/remaps/">Remaps</a>
-        <a href="/dashboard/commands/">Commands</a>
-        <a href="/stats/">Stats</a>
-        <a href="/dashboard/users/" data-admin-only>Users</a>
-        <a href="/overlays/chat/">Overlay</a>
-        <a href="/login/" id="sign-out" hidden>Sign out</a>
-      </nav>
+    <main class="main--wide">
+      <nav id="app-nav" class="nav"></nav>
 
       <h1>Chat commands</h1>
-      <p class="muted">These are the <code>!</code> commands this app currently handles. Turn one off and it is treated as a normal chat message (or hidden if “hide other ! commands” is on).</p>
+      <p class="muted">
+        Enable or disable each command, choose who can use it, and edit the short line that
+        <code>!help</code> shows for public commands. Custom commands send a prepared reply in Twitch chat.
+      </p>
 
       <section class="panel">
+        <h2>Built-in</h2>
         <table>
           <thead>
             <tr>
               <th>Command</th>
               <th>Who</th>
               <th>What it does</th>
+              <th>!help text</th>
               <th>Enabled</th>
+              <th>Mods instant hit</th>
             </tr>
           </thead>
-          <tbody id="rows">
-            <tr><td colspan="4" class="muted">Loading…</td></tr>
+          <tbody id="builtin-rows">
+            <tr><td colspan="6" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Custom replies</h2>
+        <form id="custom-form">
+          <div class="grid">
+            <label>
+              Command
+              <input id="custom-trigger" name="trigger" type="text" maxlength="24" required placeholder="discord" />
+            </label>
+            <label>
+              Who
+              <select id="custom-who" name="who">
+                <option value="anyone">Anyone</option>
+                <option value="mods">Broadcaster / mods</option>
+              </select>
+            </label>
+            <label>
+              !help text
+              <input id="custom-help" name="chatHelp" type="text" maxlength="80" placeholder="Discord invite" />
+            </label>
+          </div>
+          <label>
+            Reply in chat
+            <textarea id="custom-reply" name="reply" maxlength="500" required placeholder="Join the Discord: https://discord.gg/example"></textarea>
+          </label>
+          <div class="row" style="margin-top: 1rem">
+            <button type="submit">Add command</button>
+          </div>
+        </form>
+        <table>
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Who</th>
+              <th>Reply</th>
+              <th>!help text</th>
+              <th>Enabled</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="custom-rows">
+            <tr><td colspan="6" class="muted">Loading…</td></tr>
           </tbody>
         </table>
         <p id="flash" class="flash"></p>

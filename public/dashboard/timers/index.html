@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timed chat</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <main class="main--wide">
+      <nav id="app-nav" class="nav"></nav>
+
+      <h1>Timed chat</h1>
+      <p class="muted">
+        Messages the bot posts on a timer, like a merch or Discord plug. They go to Twitch chat but stay off the overlay.
+        “Only while live” waits until the stream is live, then waits a full interval before the first post.
+      </p>
+
+      <section class="panel">
+        <h2>Add a timed message</h2>
+        <form id="timer-form">
+          <div class="grid">
+            <label>
+              Label
+              <input id="timer-label" name="label" type="text" maxlength="40" placeholder="Merch" />
+            </label>
+            <label>
+              Every (minutes)
+              <input id="timer-interval" name="intervalMinutes" type="number" min="1" max="180" value="15" required />
+            </label>
+            <label class="check">
+              <input id="timer-live" name="liveOnly" type="checkbox" checked />
+              Only while live
+            </label>
+          </div>
+          <label>
+            Message
+            <textarea id="timer-message" name="message" maxlength="500" required placeholder="Grab merch at example.com/merch"></textarea>
+          </label>
+          <div class="row" style="margin-top: 1rem">
+            <button type="submit">Add timed message</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Current timers</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Message</th>
+              <th>Minutes</th>
+              <th>Live only</th>
+              <th>Enabled</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="6" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+        <p id="flash" class="flash"></p>
+      </section>
+    </main>
+    <script src="./timers.js"></script>
+    <script src="/app-nav.js"></script>
+  </body>
+</html>

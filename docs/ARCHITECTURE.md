@@ -67,7 +67,7 @@ Chat payloads already include parsed `fragments` (text, emotes, mentions, cheers
 - Chat: `onChannelChatMessage(broadcasterId, userId, ...)`.
 - Auth: `RefreshingAuthProvider` with `redirectUri`. Persist tokens on `provider.on(provider.onRefresh, ...)`.
 - Twurple 8 events use `emitter.on(emitter.onRefresh, handler)`, not `emitter.onRefresh(handler)`.
-- v1 scopes: `user:read:chat`, `user:bot`, `channel:bot`. Same account can read its own chat. A bot account is only needed to **send** messages.
+- Scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, plus activity-feed scopes. Same account can read and send in its own chat. Re-authorize after a scope change.
 - Default listen port: **30009**. `HOST` defaults to `0.0.0.0`. Set `PUBLIC_BASE_URL` to the URL OBS and the browser use. Redirect URL on the Twitch app must match `TWITCH_REDIRECT_URI` (default `PUBLIC_BASE_URL/oauth/callback`). Non-localhost Twitch redirects generally need https.
 
 ## Overlays

@@ -3,12 +3,26 @@ import path from "node:path";
 import { RefreshingAuthProvider } from "@twurple/auth";
 import type { AccessToken } from "@twurple/auth";
 import type { AppConfig } from "../config.js";
-import { buildAuthorizeUrl } from "../config.js";
+import { buildAuthorizeUrl, OAUTH_SCOPES } from "../config.js";
 import type { StatusStore } from "../status.js";
+
+export function missingOAuthScopes(have: readonly string[]): string[] {
+  return OAUTH_SCOPES.filter((scope) => !have.includes(scope));
+}
 
 export class OAuthWaiter {
   #pending: ((code: string) => void) | null = null;
   #buffered: string | null = null;
+  #apply: ((code: string) => Promise<string>) | null = null;
+
+  bind(apply: (code: string) => Promise<string>): void {
+    this.#apply = apply;
+    if (this.#buffered) {
+      const code = this.#buffered;
+      this.#buffered = null;
+      void apply(code);
+    }
+  }
 
   wait(): Promise<string> {
     if (this.#buffered) {
@@ -21,14 +35,18 @@ export class OAuthWaiter {
     });
   }
 
-  complete(code: string): boolean {
+  async complete(code: string): Promise<"applied" | "queued"> {
     if (this.#pending) {
       this.#pending(code);
       this.#pending = null;
-      return true;
+      return "queued";
+    }
+    if (this.#apply) {
+      await this.#apply(code);
+      return "applied";
     }
     this.#buffered = code;
-    return true;
+    return "queued";
   }
 }
 
@@ -110,15 +128,31 @@ export async function createAuthProvider(
     void saveTokens(config.tokenPath, tokenData);
   });
 
+  const applyCode = async (code: string): Promise<string> => {
+    const appliedId = await provider.addUserForCode(code, ["chat"]);
+    await persistCurrentToken(provider, config.tokenPath, appliedId);
+    const granted = provider.getCurrentScopesForUser(appliedId);
+    const missing = missingOAuthScopes(granted);
+    status.patch({ missingScopes: missing });
+    console.log(`Saved Twitch token for user ${appliedId}. Scopes: ${granted.join(", ") || "none"}`);
+    if (missing.length) {
+      console.warn(
+        `Token is still missing: ${missing.join(", ")}. On the Twitch consent screen, allow every permission listed.`,
+      );
+    } else {
+      console.log("Twitch token has every scope this app needs. Restart the container if activity EventSub still errors.");
+    }
+    return appliedId;
+  };
+  oauth.bind(applyCode);
+
   const authorize = async (): Promise<string> => {
     status.patch({ phase: "needs_login", user: null, eventSub: false });
     const url = buildAuthorizeUrl(config);
     console.log(`Authorize this app in a browser:\n  ${url}\n`);
     console.log(`Or open ${config.publicBaseUrl}/oauth`);
     const code = await oauth.wait();
-    const userId = await provider.addUserForCode(code, ["chat"]);
-    await persistCurrentToken(provider, config.tokenPath, userId);
-    return userId;
+    return applyCode(code);
   };
 
   const tokens = (await loadTokens(config.tokenPath)) ?? tokensFromEnv(config);
@@ -138,6 +172,16 @@ export async function createAuthProvider(
   }
 
   const scopes = provider.getCurrentScopesForUser(userId);
+  const missing = missingOAuthScopes(scopes);
+  status.patch({ missingScopes: missing });
+  if (missing.length) {
+    console.warn(
+      `Twitch token missing scopes: ${missing.join(", ")}. Open ${config.publicBaseUrl}/oauth, accept every permission, then restart the container.`,
+    );
+  } else {
+    console.log(`Twitch token scopes: ${scopes.join(", ")}`);
+  }
+
   if (!scopes.includes("user:read:chat")) {
     console.warn(
       `Token is missing user:read:chat (have: ${scopes.join(", ") || "none"}). Re-authorize to grant EventSub chat access.`,

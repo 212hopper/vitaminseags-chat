@@ -11,6 +11,7 @@ export type AppStatus = {
   eventSub: boolean;
   overlayPath: string;
   stream: StreamStatus;
+  missingScopes: string[];
 };
 
 export type StatusStore = {
@@ -26,6 +27,7 @@ export function createStatusStore(overlayPath: string): StatusStore {
     eventSub: false,
     overlayPath,
     stream: { live: false, viewerCount: 0, startedAt: null },
+    missingScopes: [],
   };
 
   return {

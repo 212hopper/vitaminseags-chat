@@ -33,11 +33,23 @@ export type ChatMessagePayload = {
   isRedemption: boolean;
 };
 
+export type ActivityKind = "follow" | "subscribe" | "gift" | "cheer" | "raid";
+
+export type ActivityPayload = {
+  id: string;
+  kind: ActivityKind;
+  user: string;
+  text: string;
+  ts: number;
+};
+
 export type AppEvent =
   | { type: "chat.message"; payload: ChatMessagePayload }
   | { type: "chat.message.delete"; payload: { id: string } }
   | { type: "chat.clear"; payload: Record<string, never> }
-  | { type: "overlay.settings"; payload: OverlaySettings };
+  | { type: "overlay.settings"; payload: OverlaySettings }
+  | { type: "overlay.party"; payload: { durationMs: number } }
+  | { type: "channel.activity"; payload: ActivityPayload };
 
 export type EventBus = {
   on: (handler: (event: AppEvent) => void) => () => void;

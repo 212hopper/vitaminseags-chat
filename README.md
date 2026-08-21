@@ -85,7 +85,7 @@ Copy [`.env.example`](.env.example). Do not commit `.env` or token files.
 
 Existing `.env` keys `client`, `twitch`, `access`, and `refresh` still work as aliases for the `TWITCH_*` names.
 
-v1 OAuth scopes: `user:read:chat`, `user:bot`, `channel:bot`. Same account can read its own chat. A bot account is only needed later to **send** messages.
+OAuth scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, plus activity-feed scopes. Same account can read and send in its own chat. Re-authorize after a scope change.
 
 If you change `PUBLIC_BASE_URL` or `TWITCH_REDIRECT_URI`, update the Twitch application Redirect URL to match.
 

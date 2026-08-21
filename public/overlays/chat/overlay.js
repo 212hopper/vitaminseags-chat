@@ -1,6 +1,7 @@
 (() => {
   const chat = document.getElementById("chat");
   const stage = document.getElementById("stage");
+  const disco = document.getElementById("disco");
   if (!chat || !stage) {
     return;
   }
@@ -48,6 +49,7 @@
   }
 
   function clearChat() {
+    stopParty();
     chat.replaceChildren();
     for (const handle of timers.values()) {
       clearTimeout(handle);
@@ -81,7 +83,7 @@
   }
 
   function removeMessage(id, animate) {
-    const node = chat.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    const node = stage.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (!node) {
       return;
     }
@@ -100,8 +102,9 @@
   }
 
   function capMessages() {
-    while (chat.children.length > settings.maxMessages) {
-      const oldest = chat.firstElementChild;
+    const nodes = [...stage.querySelectorAll(".msg")];
+    while (nodes.length > settings.maxMessages) {
+      const oldest = nodes.shift();
       if (!oldest) {
         break;
       }
@@ -214,8 +217,138 @@
     body.append(meta, text);
     node.append(tick, body);
     chat.append(node);
-    scheduleHold(payload.id);
+    if (isPartyLive()) {
+      enlistParty(node);
+    } else {
+      scheduleHold(payload.id);
+    }
     capMessages();
+  }
+
+  let partyUntil = 0;
+  let partyTimer = 0;
+  let partyTick = 0;
+  let discoTick = 0;
+  const partyAudio = new Audio("./party.wav");
+  partyAudio.preload = "auto";
+
+  function stopPartySound() {
+    partyAudio.pause();
+    partyAudio.currentTime = 0;
+  }
+
+  function playPartySound() {
+    stopPartySound();
+    const play = partyAudio.play();
+    if (play && typeof play.catch === "function") {
+      play.catch(() => {
+        // OBS may block audio until the Browser Source is allowed to control/output sound
+      });
+    }
+  }
+
+  function spawnDiscoOrb() {
+    if (!disco) {
+      return;
+    }
+    const size = 90 + Math.round(Math.random() * 220);
+    const orb = document.createElement("span");
+    orb.className = "disco-orb";
+    orb.style.width = `${size}px`;
+    orb.style.height = `${size}px`;
+    orb.style.left = `${Math.round(Math.random() * 1920 - size / 2)}px`;
+    orb.style.top = `${Math.round(Math.random() * 1080 - size / 2)}px`;
+    orb.style.background = `hsl(${Math.round(Math.random() * 360)} 95% 58%)`;
+    disco.append(orb);
+    window.setTimeout(() => orb.remove(), 950);
+  }
+
+  function stopDisco() {
+    window.clearInterval(discoTick);
+    discoTick = 0;
+    disco?.replaceChildren();
+  }
+
+  function startDisco() {
+    stopDisco();
+    spawnDiscoOrb();
+    discoTick = window.setInterval(spawnDiscoOrb, 160);
+  }
+
+  function isPartyLive() {
+    return Date.now() < partyUntil;
+  }
+
+  function scatterNode(node) {
+    const x = Math.round(Math.random() * 1680);
+    const y = Math.round(Math.random() * 960);
+    const rot = Math.round(Math.random() * 360 - 180);
+    const scale = 0.55 + Math.random() * 1.25;
+    const hue = Math.round(Math.random() * 360);
+    const color = `hsl(${hue} 95% 62%)`;
+    node.style.left = `${x}px`;
+    node.style.top = `${y}px`;
+    node.style.transform = `rotate(${rot}deg) scale(${scale})`;
+    node.style.setProperty("--party-color", color);
+    node.style.filter = `hue-rotate(${hue}deg) saturate(2.2) drop-shadow(0 0 12px ${color})`;
+  }
+
+  function enlistParty(node) {
+    const id = node.getAttribute("data-id");
+    const existing = id ? timers.get(id) : null;
+    if (existing) {
+      clearTimeout(existing);
+      timers.delete(id);
+    }
+    node.classList.add("is-partying");
+    stage.append(node);
+    scatterNode(node);
+  }
+
+  function scatterParty() {
+    for (const node of stage.querySelectorAll(".msg.is-partying")) {
+      scatterNode(node);
+    }
+  }
+
+  function stopParty() {
+    window.clearInterval(partyTick);
+    window.clearTimeout(partyTimer);
+    partyTick = 0;
+    partyTimer = 0;
+    partyUntil = 0;
+    stopPartySound();
+    stopDisco();
+    const flying = [...stage.querySelectorAll(".msg.is-partying")];
+    for (const node of flying) {
+      node.classList.remove("is-partying");
+      node.style.left = "";
+      node.style.top = "";
+      node.style.transform = "";
+      node.style.filter = "";
+      node.style.color = "";
+      node.style.removeProperty("--party-color");
+      chat.append(node);
+    }
+    for (const node of [...chat.children]) {
+      const id = node.getAttribute("data-id");
+      if (id) {
+        scheduleHold(id);
+      }
+    }
+  }
+
+  function startParty(durationMs) {
+    stopParty();
+    partyUntil = Date.now() + durationMs;
+    for (const node of [...chat.querySelectorAll(".msg")]) {
+      enlistParty(node);
+    }
+    scatterParty();
+    playPartySound();
+    startDisco();
+    partyTick = window.setInterval(scatterParty, 140);
+    partyTimer = window.setTimeout(() => stopParty(), durationMs);
   }
 
   function handleEvent(event) {
@@ -225,6 +358,10 @@
     }
     if (event.type === "overlay.settings") {
       applyOverlayConfig(event.payload);
+      return;
+    }
+    if (event.type === "overlay.party") {
+      startParty(event.payload?.durationMs ?? 10_000);
       return;
     }
     if (event.type === "chat.message") {

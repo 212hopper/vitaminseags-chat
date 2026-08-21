@@ -11,8 +11,10 @@ import { loadSettingsStore } from "./store/settings.js";
 import { loadRemapStore } from "./store/remaps.js";
 import { loadAccountStore } from "./store/accounts.js";
 import { createAuthProvider, OAuthWaiter } from "./twitch/auth.js";
+import { createBotChat } from "./twitch/chat-send.js";
 import { startEventSub } from "./twitch/eventsub.js";
 import { startStreamPoller } from "./twitch/stream.js";
+import { startTimedMessages } from "./twitch/timed-messages.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -75,6 +77,8 @@ async function main(): Promise<void> {
     },
   });
 
+  const botChat = createBotChat(api, broadcasterId, userId);
+
   const listener = await startEventSub({
     api,
     bus,
@@ -85,13 +89,16 @@ async function main(): Promise<void> {
     messages,
     settings,
     remaps,
+    botChat,
   });
   const stopStreamPoller = startStreamPoller(api, broadcasterId, status);
+  const stopTimedMessages = startTimedMessages({ settings, status, botChat });
 
   console.log(`Listening as user ${authedUser.name} for broadcaster ${broadcasterId}.`);
 
   const shutdown = async () => {
     stopStreamPoller();
+    stopTimedMessages();
     listener.stop();
     await server.close();
     process.exit(0);

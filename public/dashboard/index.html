@@ -7,127 +7,63 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main>
-      <nav class="nav">
-        <a href="/">Home</a>
-        <a href="/dashboard/">Dashboard</a>
-        <a href="/dashboard/remaps/">Remaps</a>
-        <a href="/dashboard/commands/">Commands</a>
-        <a href="/stats/">Stats</a>
-        <a href="/dashboard/users/" data-admin-only>Users</a>
-        <a href="/overlays/chat/">Overlay</a>
-        <a href="/login/" id="sign-out" hidden>Sign out</a>
-      </nav>
+    <main class="main--wide">
+      <nav id="app-nav" class="nav"></nav>
 
       <h1>Stream dashboard</h1>
 
-      <section class="livebar" aria-live="polite">
-        <div class="stat">
-          <div class="stat__label">Stream</div>
-          <div id="live-state" class="stat__value is-offline">Offline</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">Live for</div>
-          <div id="uptime" class="stat__value">—</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">Viewers</div>
-          <div id="viewers" class="stat__value">—</div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Chat overlay</h2>
-        <p class="muted">Show or hide the on-stream chat. Mods and the channel owner can also type <code>!showchat</code> or <code>!hidechat</code>.</p>
-        <div class="row">
-          <button id="show-chat" type="button">Show chat</button>
-          <button id="hide-chat" class="secondary" type="button">Hide chat</button>
-          <span id="chat-state" class="muted"></span>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Overlay settings</h2>
-        <p class="muted">These apply immediately to the OBS Browser Source. Env vars are only used as first-run defaults.</p>
-        <form id="settings-form">
-          <div class="grid">
-            <label>
-              Hold (seconds)
-              <input id="hold-seconds" name="holdSeconds" type="number" min="0" max="3600" step="1" required />
-            </label>
-            <label>
-              Fade (milliseconds)
-              <input id="fade-ms" name="fadeOutMs" type="number" min="0" max="30000" step="50" required />
-            </label>
-            <label>
-              Messages on screen
-              <input id="max-messages" name="maxMessages" type="number" min="1" max="50" step="1" required />
-            </label>
-            <label class="check">
-              <input id="hide-commands" name="hideCommands" type="checkbox" />
-              Hide other <code>!</code> commands from the overlay
-            </label>
+      <div class="dash-grid">
+        <section class="livebar" aria-live="polite">
+          <div class="stat">
+            <div class="stat__label">Stream</div>
+            <div id="live-state" class="stat__value is-offline">Offline</div>
           </div>
-          <div class="row" style="margin-top: 1rem">
-            <button type="submit">Save settings</button>
+          <div class="stat">
+            <div class="stat__label">Live for</div>
+            <div id="uptime" class="stat__value">—</div>
           </div>
-          <p id="settings-flash" class="flash"></p>
-        </form>
-      </section>
+          <div class="stat">
+            <div class="stat__label">Viewers</div>
+            <div id="viewers" class="stat__value">—</div>
+          </div>
+        </section>
 
-      <section class="panel">
-        <h2>Font and position</h2>
-        <p class="muted">Set the OBS Browser Source to <strong>1920×1080</strong>. Position is the top-left of the chat box on that canvas.</p>
-        <form id="layout-form">
-          <div class="grid">
-            <label>
-              Font
-              <select id="font-preset">
-                <option value='Bahnschrift, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif'>Bahnschrift</option>
-                <option value='"Segoe UI", system-ui, sans-serif'>Segoe UI</option>
-                <option value="Arial, Helvetica, sans-serif">Arial</option>
-                <option value="Georgia, Times New Roman, serif">Georgia</option>
-                <option value="Impact, Haettenschweiler, sans-serif">Impact</option>
-                <option value="custom">Custom…</option>
-              </select>
-            </label>
-            <label id="font-custom-wrap" hidden>
-              Custom font
-              <input id="font-custom" type="text" maxlength="80" placeholder='Comic Sans MS, cursive' />
-            </label>
-            <label>
-              Text size (px)
-              <input id="font-size" type="number" min="10" max="72" step="1" required />
-            </label>
-            <label>
-              X
-              <input id="pos-x" type="number" min="0" max="1920" step="1" required />
-            </label>
-            <label>
-              Y
-              <input id="pos-y" type="number" min="0" max="1080" step="1" required />
-            </label>
-            <label>
-              Width
-              <input id="box-width" type="number" min="160" max="1920" step="1" required />
-            </label>
-            <label>
-              Height
-              <input id="box-height" type="number" min="120" max="1080" step="1" required />
-            </label>
-          </div>
-          <div class="canvas-wrap">
-            <div class="canvas-preview" aria-hidden="true">
-              <div id="canvas-chat" class="canvas-chat"></div>
-              <div class="canvas-label">1920×1080</div>
+        <div class="monitor-row">
+          <section class="panel">
+            <h2>Chat</h2>
+            <p class="muted">Live log. Messages stay here; they do not expire.</p>
+            <div id="chat-log" class="feed"></div>
+          </section>
+          <section class="panel">
+            <h2>Activity</h2>
+            <p class="muted">Follows, subs, gifted subs, bits, and raids from Twitch. Cash donations are not a Twitch event.</p>
+            <div id="activity-log" class="feed"></div>
+          </section>
+          <section class="panel player-panel">
+            <h2>Channel</h2>
+            <p class="muted">Confidence monitor for <span id="player-channel">the channel</span>. Muted. Twitch only allows this embed on localhost or https.</p>
+            <div class="player-wrap">
+              <iframe
+                id="twitch-player"
+                title="Twitch channel"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen
+              ></iframe>
             </div>
+          </section>
+        </div>
+
+        <section class="panel overlay-panel">
+          <h2>Chat overlay</h2>
+          <p class="muted">Show or hide the on-stream chat. Overlay timers, font, and position live on <a href="/dashboard/settings/">Settings</a>.</p>
+          <div class="row">
+            <button id="show-chat" type="button">Show chat</button>
+            <button id="hide-chat" class="secondary" type="button">Hide chat</button>
+            <span id="chat-state" class="muted"></span>
           </div>
-          <div class="row" style="margin-top: 1rem">
-            <button type="submit">Save layout</button>
-          </div>
-          <p id="layout-flash" class="flash"></p>
-        </form>
-      </section>
+          <p id="flash" class="flash"></p>
+        </section>
+      </div>
     </main>
     <script src="./dashboard.js"></script>
     <script src="/app-nav.js"></script>

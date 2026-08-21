@@ -4,32 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Viewer messages</title>
+    <link rel="stylesheet" href="/dashboard/style.css" />
     <style>
-      :root {
-        color-scheme: dark;
-        --accent: #d6ff3f;
-        --bg: #11140f;
-        --text: #f4f1ea;
-        --muted: #c8c2b6;
-      }
-      html,
-      body {
-        margin: 0;
-        min-height: 100%;
-        font-family: Bahnschrift, "Segoe UI", system-ui, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-      }
-      main {
-        max-width: 48rem;
-        padding: 2.5rem 1.5rem;
-      }
-      a {
-        color: var(--accent);
-      }
-      .muted {
-        color: var(--muted);
-      }
       h1 {
         margin-bottom: 0.35rem;
       }
@@ -65,11 +41,7 @@
   </head>
   <body>
     <main>
-      <p>
-        <a href="/stats/">Chat stats</a> ·
-        <a href="/">Home</a> ·
-        <a href="/login/" id="sign-out" hidden>Sign out</a>
-      </p>
+      <nav id="app-nav" class="nav"></nav>
       <h1 id="title">Viewer</h1>
       <p id="meta" class="muted">Loading…</p>
       <ol id="log" class="log"></ol>

@@ -40,6 +40,65 @@ main {
   margin: 0 0 1.5rem;
 }
 
+.nav a[aria-current="page"] {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.main--wide {
+  max-width: 92rem;
+}
+
+.dash-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dash-grid .livebar {
+  margin-bottom: 0;
+}
+
+.monitor-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(18rem, 1.15fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.monitor-row .panel {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.monitor-row .feed {
+  flex: 1;
+  min-height: 12rem;
+  max-height: 450px;
+  overflow: auto;
+}
+
+.overlay-panel {
+  margin-bottom: 0;
+}
+
+.player-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #000;
+}
+
+.player-wrap iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .livebar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -119,7 +178,8 @@ label {
 input[type="number"],
 input[type="text"],
 input[type="password"],
-select {
+select,
+textarea {
   width: 100%;
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--border);
@@ -129,6 +189,21 @@ select {
   font: inherit;
   text-transform: none;
   letter-spacing: 0;
+}
+
+textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+}
+
+table input[type="text"],
+table select,
+table textarea {
+  min-width: 7.5rem;
+}
+
+table textarea {
+  min-height: 3.4rem;
 }
 
 .check {
@@ -252,6 +327,63 @@ td.actions button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.feed-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.feed {
+  height: 28rem;
+  overflow: auto;
+  padding-right: 0.35rem;
+}
+
+.feed__item {
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.feed__kind {
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wait);
+}
+
+.feed__time {
+  display: inline;
+  margin-right: 0.4rem;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+@media (max-width: 1100px) {
+  .monitor-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .player-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .monitor-row,
+  .feed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-panel {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 700px) {

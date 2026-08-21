@@ -5,6 +5,7 @@
   const authLink = document.getElementById("auth-link");
   const reauthLink = document.getElementById("reauth-link");
   const overlayUrl = document.getElementById("overlay-url");
+  const scopesNote = document.getElementById("status-scopes");
 
   function setText(node, value) {
     if (node) {
@@ -17,6 +18,23 @@
     card.classList.add(`status--${status.phase}`);
     if (status.overlayPath) {
       setText(overlayUrl, status.overlayPath);
+    }
+
+    const missing = status.missingScopes ?? [];
+    if (scopesNote) {
+      if (missing.length) {
+        scopesNote.hidden = false;
+        setText(
+          scopesNote,
+          `Twitch still needs permission for: ${missing.join(", ")}. Click Re-authorize Twitch, accept every tick, then restart the container.`,
+        );
+      } else if (new URLSearchParams(location.search).get("auth") === "updated") {
+        scopesNote.hidden = false;
+        setText(scopesNote, "New Twitch permissions saved. Restart the Docker container so follows, bits, and subs can subscribe.");
+      } else {
+        scopesNote.hidden = true;
+        setText(scopesNote, "");
+      }
     }
 
     if (status.phase === "ready" && status.user) {
