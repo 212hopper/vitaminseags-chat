@@ -13,6 +13,7 @@ import {
   publicCommandHelp,
   reservedTriggers,
   sanitizeCommandState,
+  sanitizeCustomCommand,
 } from "./catalog.js";
 
 test("who locks", () => {
@@ -60,6 +61,49 @@ test("custom commands reject built-ins and match chat text", () => {
   assert.deepEqual(clash, { error: "!party is already a built-in command." });
 });
 
+test("custom commands can be !help tips with no chat reply", () => {
+  const created = createCustomCommand({
+    trigger: "lurk",
+    reply: "",
+    sendReply: false,
+    chatHelp: "say you are lurking",
+    existing: [],
+  });
+  assert.ok(!("error" in created));
+  if ("error" in created) {
+    return;
+  }
+  assert.equal(created.sendReply, false);
+  assert.equal(created.reply, "");
+  assert.equal(created.chatHelp, "say you are lurking");
+
+  const missingHelp = createCustomCommand({
+    trigger: "lurk",
+    reply: "",
+    sendReply: false,
+    existing: [],
+  });
+  assert.deepEqual(missingHelp, { error: "Add !help text so chatters know what this command is for." });
+
+  const blankReply = createCustomCommand({ trigger: "discord", reply: "   ", existing: [] });
+  assert.deepEqual(blankReply, {
+    error: "Write the reply the bot should send, or turn off Send a chat reply.",
+  });
+
+  const existing = {
+    id: "c_keep",
+    trigger: "lurk",
+    reply: "thanks for lurking",
+    sendReply: true,
+    enabled: true,
+    who: "anyone" as const,
+    chatHelp: "say you are lurking",
+  };
+  const kept = sanitizeCustomCommand({ ...existing, sendReply: false }, existing, []);
+  assert.equal(kept?.sendReply, false);
+  assert.equal(kept?.reply, "thanks for lurking");
+});
+
 test("!help lists enabled anyone commands and skips mods-only", () => {
   const flags = cloneCommandFlags(DEFAULT_COMMANDS);
   flags.showchat.who = "mods";
@@ -69,6 +113,7 @@ test("!help lists enabled anyone commands and skips mods-only", () => {
       id: "c_test1",
       trigger: "discord",
       reply: "discord.gg/example",
+      sendReply: true,
       enabled: true,
       who: "anyone",
       chatHelp: "Discord invite",
@@ -77,13 +122,24 @@ test("!help lists enabled anyone commands and skips mods-only", () => {
       id: "c_test2",
       trigger: "modonly",
       reply: "secret",
+      sendReply: true,
       enabled: true,
       who: "mods",
       chatHelp: "hidden",
     },
+    {
+      id: "c_test3",
+      trigger: "lurk",
+      reply: "",
+      sendReply: false,
+      enabled: true,
+      who: "anyone",
+      chatHelp: "say you are lurking",
+    },
   ]);
   assert.match(text, /!colour/);
   assert.match(text, /!discord — Discord invite/);
+  assert.match(text, /!lurk — say you are lurking/);
   assert.doesNotMatch(text, /!username/);
   assert.doesNotMatch(text, /!showchat/);
   assert.doesNotMatch(text, /modonly/);

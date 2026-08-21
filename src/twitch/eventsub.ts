@@ -7,6 +7,7 @@ import type { UserStore } from "../store/users.js";
 import type { MessageStore } from "../store/messages.js";
 import type { SettingsStore } from "../store/settings.js";
 import type { RemapStore } from "../store/remaps.js";
+import type { HiddenStore } from "../store/hidden.js";
 import { parseColourCommand } from "../chat/colour.js";
 import {
   canUseWho,
@@ -98,9 +99,10 @@ export async function startEventSub(options: {
   messages: MessageStore;
   settings: SettingsStore;
   remaps: RemapStore;
+  hidden: HiddenStore;
   botChat: BotChat;
 }): Promise<EventSubWsListener> {
-  const { api, bus, broadcasterId, userId, status, users, messages, settings, remaps, botChat } = options;
+  const { api, bus, broadcasterId, userId, status, users, messages, settings, remaps, hidden, botChat } = options;
   const emotes = new EmoteCatalog();
   const badges = new BadgeCatalog();
   let lastHelpAt = 0;
@@ -118,6 +120,9 @@ export async function startEventSub(options: {
     };
     remaps.rememberUser(event.chatterId, event.chatterName);
     if (botChat.isBotEcho(event.chatterId, event.messageId, event.messageText)) {
+      return;
+    }
+    if (hidden.has(event.chatterName)) {
       return;
     }
     const live = settings.snapshot();
@@ -178,7 +183,7 @@ export async function startEventSub(options: {
 
     const custom = findCustomCommand(live.customCommands, event.messageText);
     if (custom?.enabled) {
-      if (canUseWho(custom.who, staff) && custom.reply) {
+      if (canUseWho(custom.who, staff) && custom.sendReply && custom.reply) {
         const now = Date.now();
         const last = customReplyAt.get(custom.id) ?? 0;
         if (now - last >= CUSTOM_REPLY_COOLDOWN_MS) {

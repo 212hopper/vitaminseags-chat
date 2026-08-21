@@ -10,6 +10,7 @@ import { loadUserStore } from "./store/users.js";
 import { loadMessageStore } from "./store/messages.js";
 import { loadSettingsStore } from "./store/settings.js";
 import { loadRemapStore } from "./store/remaps.js";
+import { loadHiddenStore } from "./store/hidden.js";
 import { loadAccountStore } from "./store/accounts.js";
 import { createAuthProvider, OAuthWaiter } from "./twitch/auth.js";
 import { createBotChat } from "./twitch/chat-send.js";
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
     config.overlay,
   );
   const remaps = await loadRemapStore(path.join(config.dataDir, "remaps.json"));
+  const hidden = await loadHiddenStore(path.join(config.dataDir, "hidden.json"));
   const accounts = await loadAccountStore(
     path.join(config.dataDir, "app-users.json"),
     config.adminUsername,
@@ -48,6 +50,7 @@ async function main(): Promise<void> {
     messages,
     settings,
     remaps,
+    hidden,
     accounts,
   });
   const { provider: authProvider, userId } = await createAuthProvider(config, oauth, status);
@@ -91,6 +94,7 @@ async function main(): Promise<void> {
     messages,
     settings,
     remaps,
+    hidden,
     botChat,
   });
   const stopStreamPoller = startStreamPoller(api, broadcasterId, status);

@@ -4,6 +4,7 @@
     { href: "/dashboard/", label: "Dashboard" },
     { href: "/dashboard/settings/", label: "Settings" },
     { href: "/dashboard/remaps/", label: "Remaps" },
+    { href: "/dashboard/hidden/", label: "Hidden" },
     { href: "/dashboard/commands/", label: "Commands" },
     { href: "/dashboard/timers/", label: "Timed chat" },
     { href: "/stats/", label: "Stats" },

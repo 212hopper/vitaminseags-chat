@@ -4,8 +4,10 @@
   const labelInput = document.getElementById("timer-label");
   const intervalInput = document.getElementById("timer-interval");
   const liveInput = document.getElementById("timer-live");
+  const sourceInput = document.getElementById("timer-source");
   const messageInput = document.getElementById("timer-message");
   const flash = document.getElementById("flash");
+  let customSources = [];
 
   function setFlash(message, isError) {
     flash.classList.toggle("is-error", Boolean(isError));
@@ -65,6 +67,68 @@
     });
   }
 
+  function sourceValue(timer) {
+    if (timer.source === "help") {
+      return "help";
+    }
+    if (timer.source === "custom" && timer.customId) {
+      return timer.customId;
+    }
+    return "text";
+  }
+
+  function sourceLabel(value) {
+    if (value === "text") {
+      return "Write a message";
+    }
+    if (value === "help") {
+      return "!help — live command list";
+    }
+    const custom = customSources.find((item) => item.id === value);
+    return custom ? custom.names.join(" / ") : "Custom command";
+  }
+
+  function fillSourceSelect(select, selected) {
+    select.replaceChildren();
+    const text = document.createElement("option");
+    text.value = "text";
+    text.textContent = "Write a message";
+    const help = document.createElement("option");
+    help.value = "help";
+    help.textContent = "!help — live command list";
+    select.append(text, help);
+    for (const command of customSources) {
+      const option = document.createElement("option");
+      option.value = command.id;
+      option.textContent = `${command.names.join(" / ")} — current reply`;
+      select.append(option);
+    }
+    if (selected && [...select.options].some((option) => option.value === selected)) {
+      select.value = selected;
+    } else {
+      select.value = "text";
+    }
+  }
+
+  function parseSource(value) {
+    if (value === "help") {
+      return { source: "help", customId: "" };
+    }
+    if (value === "text") {
+      return { source: "text", customId: "" };
+    }
+    return { source: "custom", customId: value };
+  }
+
+  function syncAddForm() {
+    const isText = sourceInput.value === "text";
+    messageInput.required = isText;
+    messageInput.disabled = !isText;
+    messageInput.placeholder = isText
+      ? "Grab merch at example.com/merch"
+      : "Not needed — the live command text is used instead";
+  }
+
   function render(timers) {
     rows.replaceChildren();
     if (!timers.length) {
@@ -89,11 +153,37 @@
       bindBlur(labelField, () => labelField.value, (next) => patchTimer(timer.id, { label: next }));
       label.append(labelField);
 
-      const messageField = document.createElement("textarea");
-      messageField.maxLength = 500;
-      messageField.value = timer.message ?? "";
-      bindBlur(messageField, () => messageField.value, (next) => patchTimer(timer.id, { message: next }));
-      message.append(messageField);
+      const sourceField = document.createElement("select");
+      fillSourceSelect(sourceField, sourceValue(timer));
+      sourceField.addEventListener("change", () => {
+        const next = parseSource(sourceField.value);
+        void patchTimer(timer.id, next)
+          .then((body) => {
+            setFlash(`${timer.label || "Timer"} now posts ${sourceLabel(sourceField.value)}.`, false);
+            render(body.timers ?? []);
+          })
+          .catch((error) => {
+            sourceField.value = sourceValue(timer);
+            setFlash(error.message, true);
+          });
+      });
+      message.append(sourceField);
+      if (sourceValue(timer) === "text") {
+        const messageField = document.createElement("textarea");
+        messageField.maxLength = 500;
+        messageField.value = timer.message ?? "";
+        bindBlur(messageField, () => messageField.value, (next) => patchTimer(timer.id, { message: next }));
+        message.append(messageField);
+      } else {
+        const hint = document.createElement("p");
+        hint.className = "muted";
+        hint.style.margin = "0.4rem 0 0";
+        hint.textContent =
+          sourceValue(timer) === "help"
+            ? "Posts the current !help list. Edit commands on the Commands page."
+            : "Posts that command’s current reply. Edit it on the Commands page.";
+        message.append(hint);
+      }
 
       const minutesField = document.createElement("input");
       minutesField.type = "number";
@@ -150,15 +240,22 @@
     }
   }
 
+  sourceInput.addEventListener("change", syncAddForm);
+  syncAddForm();
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const label = labelInput.value.trim();
+    const parsed = parseSource(sourceInput.value);
+    const selected = sourceInput.options[sourceInput.selectedIndex];
     void readJson("/api/timers", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        label,
-        message: messageInput.value,
+        label: label || (parsed.source === "text" ? "" : sourceLabel(sourceInput.value)),
+        message: parsed.source === "text" ? messageInput.value : "",
+        source: parsed.source,
+        customId: parsed.customId,
         intervalMinutes: Number(intervalInput.value),
         liveOnly: liveInput.checked,
       }),
@@ -167,7 +264,10 @@
         form.reset();
         intervalInput.value = "15";
         liveInput.checked = true;
-        setFlash(`${label || "Timed message"} added.`, false);
+        sourceInput.value = "text";
+        fillSourceSelect(sourceInput, "text");
+        syncAddForm();
+        setFlash(`${label || selected?.textContent || "Timed message"} added.`, false);
         render(body.timers ?? []);
       })
       .catch((error) => setFlash(error.message, true));
@@ -175,8 +275,13 @@
 
   async function refresh() {
     try {
-      const body = await readJson("/api/timers");
-      render(body.timers ?? []);
+      const [timerBody, commandBody] = await Promise.all([readJson("/api/timers"), readJson("/api/commands")]);
+      customSources = (commandBody.commands ?? []).filter(
+        (command) => command.kind === "custom" && command.sendReply && command.reply,
+      );
+      fillSourceSelect(sourceInput, sourceInput.value || "text");
+      syncAddForm();
+      render(timerBody.timers ?? []);
     } catch {
       rows.replaceChildren();
       rows.append(emptyRow("Could not load timed messages."));

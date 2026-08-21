@@ -1,6 +1,7 @@
 import type { SettingsStore } from "../store/settings.js";
 import type { StatusStore } from "../status.js";
 import type { BotChat } from "./chat-send.js";
+import { resolveTimedChatText } from "../chat/timed.js";
 
 const TICK_MS = 10_000;
 
@@ -19,7 +20,8 @@ export function startTimedMessages(options: {
     }
     const live = Boolean(status.snapshot().stream?.live);
     const now = Date.now();
-    const timers = settings.snapshot().timedMessages ?? [];
+    const overlay = settings.snapshot();
+    const timers = overlay.timedMessages ?? [];
     const known = new Set(timers.map((item) => item.id));
     for (const id of lastSent.keys()) {
       if (!known.has(id)) {
@@ -29,7 +31,7 @@ export function startTimedMessages(options: {
 
     let sentThisTick = false;
     for (const timer of timers) {
-      if (!timer.enabled || !timer.message) {
+      if (!timer.enabled) {
         lastSent.delete(timer.id);
         continue;
       }
@@ -46,9 +48,13 @@ export function startTimedMessages(options: {
       if (now - last < intervalMs || sentThisTick) {
         continue;
       }
+      const text = resolveTimedChatText(timer, overlay);
+      if (!text) {
+        continue;
+      }
       lastSent.set(timer.id, now);
       sentThisTick = true;
-      void botChat.send(timer.message);
+      void botChat.send(text);
     }
   };
 

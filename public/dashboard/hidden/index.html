@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hide from overlay</title>
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <main>
+      <nav id="app-nav" class="nav"></nav>
+
+      <h1>Hide from overlay</h1>
+      <p class="muted">
+        Twitch logins on this list never appear on the chat overlay or in the dashboard live feed.
+        Use this for other bots (Nightbot, StreamElements, and so on) so you do not have to change code.
+        They can still talk in Twitch chat.
+      </p>
+
+      <section class="panel">
+        <h2>Add a login</h2>
+        <form id="hidden-form">
+          <div class="grid">
+            <label>
+              Twitch login
+              <input id="login" name="login" type="text" maxlength="25" required placeholder="nightbot" />
+            </label>
+          </div>
+          <p class="muted" style="margin-top: 0.6rem">
+            Twitch logins are not case-sensitive. <code>Nightbot</code> and <code>nightbot</code> are the same account, so we store and show them in lowercase.
+          </p>
+          <div class="row" style="margin-top: 1rem">
+            <button type="submit">Hide from overlay</button>
+          </div>
+          <p id="flash" class="flash"></p>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Hidden logins</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Twitch login</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="2" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+    <script src="./hidden.js"></script>
+    <script src="/app-nav.js"></script>
+  </body>
+</html>

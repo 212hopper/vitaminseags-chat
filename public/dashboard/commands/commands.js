@@ -6,12 +6,25 @@
   const whoInput = document.getElementById("custom-who");
   const helpInput = document.getElementById("custom-help");
   const replyInput = document.getElementById("custom-reply");
+  const sendReplyInput = document.getElementById("custom-send-reply");
   const flash = document.getElementById("flash");
 
   function setFlash(message, isError) {
     flash.classList.toggle("is-error", Boolean(isError));
     flash.textContent = message;
   }
+
+  function syncAddReplyRequired() {
+    const sendReply = sendReplyInput.checked;
+    replyInput.required = sendReply;
+    helpInput.required = !sendReply;
+    replyInput.placeholder = sendReply
+      ? "Join the Discord: https://discord.gg/example"
+      : "Optional — leave blank if this is a !help tip only";
+  }
+
+  sendReplyInput.addEventListener("change", syncAddReplyRequired);
+  syncAddReplyRequired();
 
   function whoLabel(who) {
     return who === "mods" ? "Broadcaster / mods" : "Anyone";
@@ -203,13 +216,33 @@
       );
       who.append(whoControl);
 
+      const replyStack = document.createElement("div");
+      const sendToggleLabel = document.createElement("label");
+      sendToggleLabel.className = "check";
+      const sendToggle = document.createElement("input");
+      sendToggle.type = "checkbox";
+      sendToggle.checked = Boolean(command.sendReply);
+      sendToggle.title = "When off, !help can list this command but chat gets no bot reply";
+      bindToggle(sendToggle, () =>
+        patchCommand(command.id, { sendReply: sendToggle.checked }).then((body) => {
+          setFlash(
+            sendToggle.checked
+              ? `${command.names[0]} will reply in chat.`
+              : `${command.names[0]} is listed in !help only.`,
+            false,
+          );
+          return body;
+        }),
+      );
+      sendToggleLabel.append(sendToggle, document.createTextNode(" Send reply"));
       const replyField = document.createElement("textarea");
       replyField.maxLength = 500;
       replyField.value = command.reply ?? "";
       bindText(replyField, () => replyField.value, (nextReply) =>
         patchCommand(command.id, { reply: nextReply }),
       );
-      reply.append(replyField);
+      replyStack.append(sendToggleLabel, replyField);
+      reply.append(replyStack);
 
       const helpField = document.createElement("input");
       helpField.type = "text";
@@ -268,6 +301,7 @@
       body: JSON.stringify({
         trigger: triggerInput.value,
         reply: replyInput.value,
+        sendReply: sendReplyInput.checked,
         who: whoInput.value,
         chatHelp: helpInput.value,
       }),
@@ -275,6 +309,8 @@
       .then((body) => {
         form.reset();
         whoInput.value = "anyone";
+        sendReplyInput.checked = true;
+        syncAddReplyRequired();
         setFlash(`!${name} added.`, false);
         render(body.commands ?? []);
       })

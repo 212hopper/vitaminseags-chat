@@ -14,6 +14,7 @@ import type { UserStore } from "../store/users.js";
 import type { MessageStore } from "../store/messages.js";
 import type { OverlaySettings, SettingsStore } from "../store/settings.js";
 import type { RemapStore } from "../store/remaps.js";
+import type { HiddenStore } from "../store/hidden.js";
 import { normalizeUsername, safeEqual, type AccountStore } from "../store/accounts.js";
 import {
   cloneCustomCommands,
@@ -27,6 +28,7 @@ import {
   cloneTimedMessages,
   createTimedMessage,
   sanitizeTimedMessage,
+  timedMessageIsComplete,
 } from "../chat/timed.js";
 import { log, pinoToAppLogStream } from "../log.js";
 import {
@@ -78,9 +80,10 @@ export async function startHttpServer(options: {
   messages: MessageStore;
   settings: SettingsStore;
   remaps: RemapStore;
+  hidden: HiddenStore;
   accounts: AccountStore;
 }): Promise<FastifyInstance> {
-  const { config, bus, oauth, status, users, messages, settings, remaps, accounts } = options;
+  const { config, bus, oauth, status, users, messages, settings, remaps, hidden, accounts } = options;
   const app = Fastify({
     trustProxy: config.trustProxy,
     logger: {
@@ -268,6 +271,7 @@ export async function startHttpServer(options: {
     const body = (request.body ?? {}) as {
       trigger?: string;
       reply?: string;
+      sendReply?: boolean;
       who?: string;
       chatHelp?: string;
     };
@@ -275,6 +279,7 @@ export async function startHttpServer(options: {
     const created = createCustomCommand({
       trigger: body.trigger ?? "",
       reply: body.reply ?? "",
+      sendReply: body.sendReply,
       who: body.who === "mods" ? "mods" : "anyone",
       chatHelp: body.chatHelp ?? "",
       existing: current.customCommands,
@@ -350,6 +355,8 @@ export async function startHttpServer(options: {
     const body = (request.body ?? {}) as {
       label?: string;
       message?: string;
+      source?: string;
+      customId?: string;
       intervalMinutes?: number;
       liveOnly?: boolean;
     };
@@ -357,6 +364,8 @@ export async function startHttpServer(options: {
     const created = createTimedMessage({
       label: body.label ?? "",
       message: body.message ?? "",
+      source: body.source === "help" || body.source === "custom" ? body.source : "text",
+      customId: body.customId ?? "",
       intervalMinutes: body.intervalMinutes,
       liveOnly: body.liveOnly,
       existing: current.timedMessages ?? [],
@@ -388,7 +397,7 @@ export async function startHttpServer(options: {
       }
       const patch = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
       const next = sanitizeTimedMessage({ ...existing, ...patch, id: key }, existing);
-      if (!next || !next.message) {
+      if (!next || !timedMessageIsComplete(next)) {
         return reply.status(400).send({ error: "That timed message could not be updated." });
       }
       timers[index] = next;
@@ -485,6 +494,32 @@ export async function startHttpServer(options: {
       return reply.status(404).send({ error: "Remap not found" });
     }
     return { ok: true };
+  });
+
+  app.get("/api/hidden", async () => ({ logins: hidden.list() }));
+
+  app.post("/api/hidden", async (request, reply) => {
+    const body = (request.body ?? {}) as { login?: string };
+    const result = await hidden.add(body.login ?? "");
+    if (result === "invalid") {
+      return reply.status(400).send({ error: "Need a valid Twitch login (3–25 letters, numbers or underscores)." });
+    }
+    if (result === "exists") {
+      return reply.status(409).send({ error: "That login is already hidden." });
+    }
+    if (result === "full") {
+      return reply.status(400).send({ error: "You can hide at most 100 logins." });
+    }
+    return { logins: hidden.list() };
+  });
+
+  app.delete("/api/hidden/:login", async (request, reply) => {
+    const { login } = request.params as { login: string };
+    const removed = await hidden.remove(login);
+    if (!removed) {
+      return reply.status(404).send({ error: "Login is not hidden." });
+    }
+    return { logins: hidden.list() };
   });
 
   app.get("/api/status", async () => status.snapshot());

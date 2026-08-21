@@ -10,7 +10,7 @@ For agents: [AGENTS.md](AGENTS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | --- | --- |
 | App | One Fastify + Twurple process (Docker or `npm start`) |
 | Overlay | `PUBLIC_BASE_URL/overlays/chat/` — transparent OBS Browser Source |
-| Dashboard | Commands, timed chat, remaps, overlay layout, live activity, stats |
+| Dashboard | Commands, timed chat, remaps, hidden chatters, overlay layout, live activity, stats |
 | Data | JSON files on a Docker volume (`/app/data`), not Postgres |
 | Chat replies | Sent as the Twitch account you authorize (`!help`, custom `!` replies, timers) |
 
@@ -70,9 +70,10 @@ body { background-color: rgba(0, 0, 0, 0) !important; }
 | `/overlays/chat/` | OBS chat overlay (public) |
 | `/dashboard/` | Live status, chat log, activity, Twitch player |
 | `/dashboard/settings/` | Hold, fade, font, 1080p box position |
-| `/dashboard/commands/` | Enable commands, who, `!help` text, custom replies |
-| `/dashboard/timers/` | Timed chat messages |
+| `/dashboard/commands/` | Enable commands, who, `!help` text, custom replies or help-only tips |
+| `/dashboard/timers/` | Timed chat: free text, live `!help`, or a custom command reply |
 | `/dashboard/remaps/` | On-screen name remaps |
+| `/dashboard/hidden/` | Hide Twitch logins from the overlay |
 | `/stats/` | Per-viewer message counts and history |
 | `/oauth` | Start Twitch authorization (sign-in required when app login is on) |
 | `/health` | Liveness JSON for Docker / Portainer |

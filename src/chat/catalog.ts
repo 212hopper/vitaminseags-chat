@@ -14,6 +14,7 @@ export type CustomCommand = {
   id: string;
   trigger: string;
   reply: string;
+  sendReply: boolean;
   enabled: boolean;
   who: CommandWho;
   chatHelp: string;
@@ -35,6 +36,7 @@ export type ChatCommandView = {
   who: CommandWho;
   description: string;
   reply: string | null;
+  sendReply: boolean;
   chatHelp: string;
   enabled: boolean;
   staffGuarantee: boolean;
@@ -213,6 +215,10 @@ export function sanitizeCommandState(value: unknown, fallback: CommandState): Co
   };
 }
 
+export function sanitizeSendReply(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 export function sanitizeCustomCommand(
   value: unknown,
   fallback: CustomCommand | null,
@@ -236,13 +242,23 @@ export function sanitizeCustomCommand(
   if (others.some((item) => item.id !== id && item.trigger === trigger)) {
     return fallback ? { ...fallback } : null;
   }
+  const reply = sanitizeReply(raw.reply, fallback?.reply ?? "");
+  const sendReply = sanitizeSendReply(raw.sendReply, fallback?.sendReply ?? Boolean(reply));
+  const chatHelp = sanitizeChatHelp(raw.chatHelp, fallback?.chatHelp ?? "");
+  if (sendReply && !reply) {
+    return null;
+  }
+  if (!sendReply && !chatHelp) {
+    return null;
+  }
   return {
     id,
     trigger,
-    reply: sanitizeReply(raw.reply, fallback?.reply ?? ""),
+    reply,
+    sendReply,
     enabled: typeof raw.enabled === "boolean" ? raw.enabled : (fallback?.enabled ?? true),
     who: sanitizeWho(raw.who, fallback?.who ?? "anyone"),
-    chatHelp: sanitizeChatHelp(raw.chatHelp, fallback?.chatHelp ?? ""),
+    chatHelp,
   };
 }
 
@@ -266,6 +282,7 @@ export function sanitizeCustomCommands(partial: unknown, current: CustomCommand[
 export function createCustomCommand(input: {
   trigger: string;
   reply: string;
+  sendReply?: boolean;
   who?: CommandWho;
   chatHelp?: string;
   existing: CustomCommand[];
@@ -283,17 +300,23 @@ export function createCustomCommand(input: {
   if (input.existing.some((item) => item.trigger === trigger)) {
     return { error: `!${trigger} already exists.` };
   }
+  const sendReply = input.sendReply !== false;
   const reply = sanitizeReply(input.reply, "");
-  if (!reply) {
-    return { error: "Write the reply the bot should send." };
+  const chatHelp = sanitizeChatHelp(input.chatHelp, "");
+  if (sendReply && !reply) {
+    return { error: "Write the reply the bot should send, or turn off Send a chat reply." };
+  }
+  if (!sendReply && !chatHelp) {
+    return { error: "Add !help text so chatters know what this command is for." };
   }
   return {
     id: newCustomId(),
     trigger,
     reply,
+    sendReply,
     enabled: true,
     who: sanitizeWho(input.who, "anyone"),
-    chatHelp: sanitizeChatHelp(input.chatHelp, ""),
+    chatHelp,
   };
 }
 
@@ -340,6 +363,7 @@ export function serializeCommands(flags: CommandFlags, custom: CustomCommand[]):
     who: commandWho(flags, command.id),
     description: command.description,
     reply: null,
+    sendReply: false,
     chatHelp: commandChatHelp(flags, command.id),
     enabled: isCommandEnabled(flags, command.id),
     staffGuarantee: isStaffGuaranteeEnabled(flags, command.id),
@@ -350,8 +374,9 @@ export function serializeCommands(flags: CommandFlags, custom: CustomCommand[]):
     kind: "custom" as const,
     names: [`!${command.trigger}`],
     who: command.who,
-    description: "Custom chat reply.",
+    description: command.sendReply ? "Custom chat reply." : "Listed in !help; no chat reply.",
     reply: command.reply,
+    sendReply: command.sendReply,
     chatHelp: command.chatHelp,
     enabled: command.enabled,
     staffGuarantee: false,

@@ -22,7 +22,7 @@ Twitch Helix + EventSub WS
    ├── GET  /health         liveness (public)
    ├── GET  /oauth          Twitch login
    ├── GET  /dashboard/*    streamer UI (app login)
-   └── GET  /api/*          settings, commands, timers, remaps, stats
+   └── GET  /api/*          settings, commands, timers, remaps, hidden, stats
 ```
 
 Boot order in `src/index.ts`: HTTP (so OAuth and `/health` work) → auth → Helix client → EventSub → stream poller → timed messages → shutdown hooks.
@@ -45,9 +45,10 @@ Boot order in `src/index.ts`: HTTP (so OAuth and `/health` work) → auth → He
 | `src/twitch/badges.ts` | Twitch badge URL cache |
 | `src/server/http.ts` | Fastify, static, `/ws`, OAuth, dashboard APIs |
 | `src/server/session.ts` | App login cookies, persisted to `data/sessions.json` |
+| `src/store/hidden.ts` | Overlay hide-list for Twitch logins |
 | `public/overlays/chat/` | OBS chat overlay |
 | `public/dashboard/` | Streamer pages |
-| `data/` | Gitignored volume: tokens, settings, remaps, users, messages, sessions |
+| `data/` | Gitignored volume: tokens, settings, remaps, hidden, users, messages, sessions |
 | `Dockerfile` / `docker-compose.yml` | Image build (`tsc`), healthcheck on `PORT`, volume |
 | `.github/workflows/ci.yml` | `npm test` + `tsc --noEmit` on push |
 
@@ -78,7 +79,7 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - Library: **Twurple 8** (`@twurple/auth`, `@twurple/api`, `@twurple/eventsub-ws`).
 - EventSub over **WebSocket** (no public EventSub callback URL).
 - Chat: `onChannelChatMessage(broadcasterId, userId, ...)`.
-- Send: `api.chat.sendChatMessage` via `createBotChat`. Replies, custom commands, and timers share that helper so echoes are hidden on the overlay.
+- Send: `api.chat.sendChatMessage` via `createBotChat`. Replies, custom commands, and timers share that helper so echoes are hidden on the overlay. Timers can post free text, the live `!help` list, or a custom command’s current reply.
 - Auth: `RefreshingAuthProvider` with `redirectUri`. Persist tokens on `provider.on(provider.onRefresh, ...)`.
 - Twurple 8 events use `emitter.on(emitter.onRefresh, handler)`, not `emitter.onRefresh(handler)`.
 - Scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, `moderator:read:followers`, `channel:read:subscriptions`, `bits:read`. Re-authorize after a scope change, then restart the container.

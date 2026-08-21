@@ -12,7 +12,8 @@
 
       <h1>Timed chat</h1>
       <p class="muted">
-        Messages the bot posts on a timer, like a merch or Discord plug. They go to Twitch chat but stay off the overlay.
+        Messages the bot posts on a timer. They go to Twitch chat but stay off the overlay.
+        Pick <code>!help</code> to post the live command list, or a custom command to post its current reply — you do not have to copy that text here.
         “Only while live” waits until the stream is live, then waits a full interval before the first post.
       </p>
 
@@ -32,6 +33,13 @@
               <input id="timer-live" name="liveOnly" type="checkbox" checked />
               Only while live
             </label>
+            <label>
+              What to post
+              <select id="timer-source" name="source">
+                <option value="text">Write a message</option>
+                <option value="help">!help — live command list</option>
+              </select>
+            </label>
           </div>
           <label>
             Message
@@ -49,7 +57,7 @@
           <thead>
             <tr>
               <th>Label</th>
-              <th>Message</th>
+              <th>What to post</th>
               <th>Minutes</th>
               <th>Live only</th>
               <th>Enabled</th>
