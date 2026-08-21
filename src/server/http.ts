@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
+import rateLimit from "@fastify/rate-limit";
 import type { AppConfig } from "../config.js";
 import { buildAuthorizeUrl } from "../config.js";
 import type { EventBus, ChatMessagePayload, ActivityPayload } from "../events.js";
@@ -29,9 +30,13 @@ import {
 } from "../chat/timed.js";
 import { log } from "../log.js";
 import {
+  clearOauthStateCookie,
   clearSessionCookie,
   loadSessionStore,
   isPublicPath,
+  oauthStateCookie,
+  oauthStateMatches,
+  readOauthStateCookie,
   sessionCookie,
   type SessionAccount,
 } from "./session.js";
@@ -41,7 +46,8 @@ function escapeHtml(value: string): string {
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 type ClientSocket = {
@@ -57,6 +63,10 @@ function pathnameOf(url: string): string {
   return url.split("?")[0] ?? url;
 }
 
+export type HttpServer = FastifyInstance & {
+  flushSessions: () => Promise<void>;
+};
+
 export async function startHttpServer(options: {
   config: AppConfig;
   bus: EventBus;
@@ -67,7 +77,7 @@ export async function startHttpServer(options: {
   settings: SettingsStore;
   remaps: RemapStore;
   accounts: AccountStore;
-}): Promise<FastifyInstance> {
+}): Promise<HttpServer> {
   const { config, bus, oauth, status, users, messages, settings, remaps, accounts } = options;
   const app = Fastify({
     logger: {
@@ -90,6 +100,7 @@ export async function startHttpServer(options: {
   const recentActivity: ActivityPayload[] = [];
   const feedCap = 150;
 
+  await app.register(rateLimit, { global: false });
   await app.register(websocket);
 
   app.get("/login", async (_request, reply) => reply.redirect("/login/"));
@@ -163,26 +174,37 @@ export async function startHttpServer(options: {
     };
   });
 
-  app.post("/api/login", async (request, reply) => {
-    if (!authEnabled(config)) {
-      return reply.status(400).send({ error: "App login is not configured. Set ADMIN_USERNAME and ADMIN_PASSWORD." });
-    }
-    const body = (request.body ?? {}) as { username?: string; password?: string };
-    const username = normalizeUsername(body.username ?? "");
-    const password = body.password ?? "";
-    let account: SessionAccount | null = null;
-    if (username && username === normalizeUsername(config.adminUsername) && safeEqual(password, config.adminPassword)) {
-      account = { username: config.adminUsername, role: "admin" };
-    } else if (username && accounts.verify(username, password)) {
-      account = { username, role: "user" };
-    }
-    if (!account) {
-      return reply.status(401).send({ error: "Wrong username or password" });
-    }
-    const token = sessions.create(account);
-    void reply.header("Set-Cookie", sessionCookie(token, secureCookie));
-    return { username: account.username, role: account.role };
-  });
+  app.post(
+    "/api/login",
+    {
+      config: {
+        rateLimit: {
+          max: 8,
+          timeWindow: "1 minute",
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!authEnabled(config)) {
+        return reply.status(400).send({ error: "App login is not configured. Set ADMIN_USERNAME and ADMIN_PASSWORD." });
+      }
+      const body = (request.body ?? {}) as { username?: string; password?: string };
+      const username = normalizeUsername(body.username ?? "");
+      const password = body.password ?? "";
+      let account: SessionAccount | null = null;
+      if (username && username === normalizeUsername(config.adminUsername) && safeEqual(password, config.adminPassword)) {
+        account = { username: config.adminUsername, role: "admin" };
+      } else if (username && accounts.verify(username, password)) {
+        account = { username, role: "user" };
+      }
+      if (!account) {
+        return reply.status(401).send({ error: "Wrong username or password" });
+      }
+      const token = sessions.create(account);
+      void reply.header("Set-Cookie", sessionCookie(token, secureCookie));
+      return { username: account.username, role: account.role };
+    },
+  );
 
   app.post("/api/logout", async (request, reply) => {
     sessions.destroy(request.headers.cookie);
@@ -487,11 +509,23 @@ export async function startHttpServer(options: {
   });
 
   app.get("/oauth", async (_request, reply) => {
-    reply.redirect(buildAuthorizeUrl(config));
+    const state = oauth.issueState();
+    void reply.header("Set-Cookie", oauthStateCookie(state, secureCookie));
+    return reply.redirect(buildAuthorizeUrl(config, state));
   });
 
   app.get("/oauth/callback", async (request, reply) => {
-    const query = request.query as { code?: string; error?: string; error_description?: string };
+    const query = request.query as {
+      code?: string;
+      error?: string;
+      error_description?: string;
+      state?: string;
+    };
+    const cookieState = readOauthStateCookie(request.headers.cookie);
+    if (!oauth.matchesState(query.state) && !oauthStateMatches(cookieState, query.state)) {
+      return reply.status(400).send("Invalid OAuth state");
+    }
+    void reply.header("Set-Cookie", clearOauthStateCookie(secureCookie));
     if (query.error) {
       return reply
         .type("text/html")
@@ -576,5 +610,7 @@ export async function startHttpServer(options: {
     oauth: `${config.publicBaseUrl}/oauth`,
     health: `${config.publicBaseUrl}/health`,
   });
-  return app;
+  const server = app as unknown as HttpServer;
+  server.flushSessions = () => sessions.flush();
+  return server;
 }

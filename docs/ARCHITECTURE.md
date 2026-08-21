@@ -48,7 +48,8 @@ Boot order in `src/index.ts`: HTTP (so OAuth and `/health` work) → auth → He
 | `public/overlays/chat/` | OBS chat overlay |
 | `public/dashboard/` | Streamer pages |
 | `data/` | Gitignored volume: tokens, settings, remaps, users, messages, sessions |
-| `Dockerfile` / `docker-compose.yml` | Build (runs `npm test` then `tsc`), healthcheck, volume |
+| `Dockerfile` / `docker-compose.yml` | Image build (`tsc`), healthcheck on `PORT`, volume |
+| `.github/workflows/ci.yml` | `npm test` + `tsc --noEmit` on push |
 
 ## Event contract
 
@@ -91,18 +92,19 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - `textContent` / `createElement` for chatter text. Never `innerHTML` with user text.
 - Only `https:` image URLs (emotes, badges).
 - Handle `hello`, `overlay.settings`, `overlay.party`, `chat.message`, `chat.message.delete`, `chat.clear`. Ignore unknown `type`s.
-- OBS: leave “Shutdown source when not visible” off. Allow the source to control audio for party sound (`public/overlays/chat/party.wav`).
+- OBS: leave “Shutdown source when not visible” off. Allow the source to control audio for party sound (`public/overlays/chat/party.wav`, replaceable ~2.4 MB clip).
 
 ## Ops
 
 - `GET /health` returns `{ ok, phase, eventSub, live, uptimeSec }` and is public. Docker/Compose healthchecks hit it. `ok` means the HTTP server is up, not that EventSub is connected.
 - Fastify request logs omit cookies. App logs are JSON lines (`LOG_LEVEL`).
-- App sessions persist in `data/sessions.json` so a container restart does not force a dashboard re-login.
+- App sessions persist in `data/sessions.json` (sha256 of the cookie token as the key) so a container restart does not force a dashboard re-login.
+- Chat history per user is capped at 2000 lines.
 - `restart: unless-stopped` on the compose service.
 
 ## Tests
 
-`npm test` runs `tsx --test` on `src/**/*.test.ts` (colour, commands, catalog, timers, settings sanitise, sessions). The Docker build stage runs tests before `tsc`. Test files are excluded from `tsc` emit.
+`npm test` type-checks `src/**/*.ts` (including tests) then runs `tsx --test` on the unit files (colour, commands, catalog, timers, settings sanitise, message log cap, sessions, log level). GitHub Actions runs the same plus `tsc --noEmit` for the production emit config. Test files are excluded from `dist/`.
 
 ## Adding a feature (example: alerts overlay)
 

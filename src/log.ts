@@ -1,23 +1,34 @@
-const LEVELS = ["fatal", "error", "warn", "info", "debug", "trace", "silent"] as const;
-export type LogLevel = (typeof LEVELS)[number];
+export type LogLevel = "error" | "warn" | "info";
 
 const rank: Record<LogLevel, number> = {
-  silent: 100,
-  fatal: 60,
   error: 50,
   warn: 40,
   info: 30,
-  debug: 20,
-  trace: 10,
 };
 
-function currentLevel(): LogLevel {
-  const raw = (process.env.LOG_LEVEL ?? "info").trim().toLowerCase();
-  return LEVELS.includes(raw as LogLevel) ? (raw as LogLevel) : "info";
+let activeLevel: LogLevel = "info";
+
+export function parseLogLevel(raw: string | undefined): LogLevel {
+  const value = (raw ?? "info").trim().toLowerCase();
+  if (value === "error" || value === "warn" || value === "info") {
+    return value;
+  }
+  return "info";
 }
 
-function write(level: Exclude<LogLevel, "silent">, msg: string, extra?: unknown): void {
-  if (rank[level] < rank[currentLevel()]) {
+export function setLogLevel(level: LogLevel): void {
+  activeLevel = level;
+}
+
+function serializeExtra(extra: unknown): unknown {
+  if (extra instanceof Error) {
+    return { name: extra.name, message: extra.message, stack: extra.stack };
+  }
+  return extra;
+}
+
+function write(level: LogLevel, msg: string, extra?: unknown): void {
+  if (rank[level] < rank[activeLevel]) {
     return;
   }
   const line: Record<string, unknown> = {
@@ -26,10 +37,10 @@ function write(level: Exclude<LogLevel, "silent">, msg: string, extra?: unknown)
     msg,
   };
   if (extra !== undefined) {
-    line.extra = extra instanceof Error ? { name: extra.name, message: extra.message } : extra;
+    line.extra = serializeExtra(extra);
   }
   const text = `${JSON.stringify(line)}\n`;
-  if (level === "error" || level === "fatal") {
+  if (level === "error") {
     process.stderr.write(text);
     return;
   }

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { RefreshingAuthProvider } from "@twurple/auth";
@@ -5,6 +6,7 @@ import type { AccessToken } from "@twurple/auth";
 import type { AppConfig } from "../config.js";
 import { buildAuthorizeUrl, OAUTH_SCOPES } from "../config.js";
 import { log } from "../log.js";
+import { safeEqual } from "../store/accounts.js";
 import type { StatusStore } from "../status.js";
 
 export function missingOAuthScopes(have: readonly string[]): string[] {
@@ -15,6 +17,20 @@ export class OAuthWaiter {
   #pending: ((code: string) => void) | null = null;
   #buffered: string | null = null;
   #apply: ((code: string) => Promise<string>) | null = null;
+  #expectedState: string | null = null;
+
+  issueState(): string {
+    const state = randomBytes(16).toString("hex");
+    this.#expectedState = state;
+    return state;
+  }
+
+  matchesState(state: string | undefined): boolean {
+    if (!state || !this.#expectedState) {
+      return false;
+    }
+    return safeEqual(state, this.#expectedState);
+  }
 
   bind(apply: (code: string) => Promise<string>): void {
     this.#apply = apply;
@@ -149,7 +165,8 @@ export async function createAuthProvider(
 
   const authorize = async (): Promise<string> => {
     status.patch({ phase: "needs_login", user: null, eventSub: false });
-    const url = buildAuthorizeUrl(config);
+    const state = oauth.issueState();
+    const url = buildAuthorizeUrl(config, state);
     log.info(`Authorize this app in a browser:\n  ${url}`);
     log.info(`Or open ${config.publicBaseUrl}/oauth`);
     const code = await oauth.wait();

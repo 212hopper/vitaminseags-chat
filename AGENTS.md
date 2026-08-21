@@ -15,9 +15,9 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before adding features. Projec
 - Chat commands: `!colour` / `!color`, `!username`, `!showchat` / `!hidechat`, `!party`, `!help`, plus custom replies from the Commands page
 - Timed chat messages (optional live-only)
 - Bot-sent lines stay in Twitch chat and are not drawn on the overlay
-- App login (`ADMIN_USERNAME` / `ADMIN_PASSWORD`); overlay, `/ws`, and `/health` stay public
-- `GET /health` for Docker/Portainer; JSON logs (`LOG_LEVEL`)
-- `npm test` (Node test runner + tsx)
+- App login (`ADMIN_USERNAME` / `ADMIN_PASSWORD`); overlay, `/ws`, `/health`, and `/oauth/callback` stay public
+- `GET /health` for Docker/Portainer; JSON logs (`LOG_LEVEL`: `error` | `warn` | `info`)
+- `npm test` (typecheck tests + Node test runner via tsx); GitHub Actions on push
 
 ## Non-negotiables
 

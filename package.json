@@ -12,9 +12,10 @@
     "start": "tsx src/index.ts",
     "start:prod": "node dist/index.js",
     "build": "tsc",
-    "test": "tsx --test src/chat/colour.test.ts src/chat/catalog.test.ts src/chat/commands.test.ts src/chat/timed.test.ts src/store/settings.test.ts src/server/session.test.ts"
+    "test": "tsc --noEmit -p tsconfig.test.json && tsx --test src/chat/colour.test.ts src/chat/catalog.test.ts src/chat/commands.test.ts src/chat/timed.test.ts src/store/settings.test.ts src/store/messages.test.ts src/server/session.test.ts src/log.test.ts"
   },
   "dependencies": {
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^10.1.3",
     "@fastify/websocket": "^11.3.0",
     "@twurple/api": "^8.1.4",
@@ -25,7 +26,7 @@
     "fastify": "^5.12.1"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^22.20.1",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -16,6 +16,8 @@ test("health and overlay stay public", () => {
   assert.equal(isPublicPath("/health"), true);
   assert.equal(isPublicPath("/overlays/chat/"), true);
   assert.equal(isPublicPath("/ws"), true);
+  assert.equal(isPublicPath("/oauth/callback"), true);
+  assert.equal(isPublicPath("/oauth"), false);
   assert.equal(isPublicPath("/dashboard/"), false);
   assert.equal(isPublicPath("/api/commands"), false);
 });
@@ -27,6 +29,8 @@ test("sessions survive a reload from disk", async () => {
     const first = await loadSessionStore(filePath);
     const token = first.create({ username: "phil", role: "admin" });
     await first.flush();
+    const onDisk = await readFile(filePath, "utf8");
+    assert.equal(onDisk.includes(token), false);
     const cookie = `vseags_session=${token}`;
     assert.equal(first.resolve(cookie)?.username, "phil");
 

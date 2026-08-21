@@ -1,7 +1,7 @@
 import "dotenv/config";
 import path from "node:path";
 import { ApiClient } from "@twurple/api";
-import { log } from "./log.js";
+import { log, setLogLevel } from "./log.js";
 import { loadConfig } from "./config.js";
 import { createEventBus } from "./events.js";
 import { startHttpServer } from "./server/http.js";
@@ -19,6 +19,7 @@ import { startTimedMessages } from "./twitch/timed-messages.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  setLogLevel(config.logLevel);
   const bus = createEventBus();
   const oauth = new OAuthWaiter();
   const status = createStatusStore("/overlays/chat/");
@@ -101,6 +102,7 @@ async function main(): Promise<void> {
     stopStreamPoller();
     stopTimedMessages();
     listener.stop();
+    await server.flushSessions();
     await server.close();
     process.exit(0);
   };

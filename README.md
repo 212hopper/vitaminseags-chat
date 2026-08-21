@@ -74,7 +74,7 @@ body { background-color: rgba(0, 0, 0, 0) !important; }
 | `/dashboard/timers/` | Timed chat messages |
 | `/dashboard/remaps/` | On-screen name remaps |
 | `/stats/` | Per-viewer message counts and history |
-| `/oauth` | Twitch authorization |
+| `/oauth` | Start Twitch authorization (sign-in required when app login is on) |
 | `/health` | Liveness JSON for Docker / Portainer |
 | `/login/` | App login (not Twitch) |
 
@@ -90,8 +90,8 @@ body { background-color: rgba(0, 0, 0, 0) !important; }
 | `HOST` | no | Bind address (default `0.0.0.0`) |
 | `PORT` | no | Listen port (default `30009`) |
 | `ADMIN_USERNAME` | recommended | App login |
-| `ADMIN_PASSWORD` | recommended | App login. Overlay + `/ws` + `/health` stay public |
-| `LOG_LEVEL` | no | `fatal` `error` `warn` `info` `debug` `trace` `silent` (default `info`) |
+| `ADMIN_PASSWORD` | recommended | App login. Overlay + `/ws` + `/health` + `/oauth/callback` stay public |
+| `LOG_LEVEL` | no | `error` `warn` `info` (default `info`) |
 | `OVERLAY_MAX_MESSAGES` | no | First-run default only; settings page wins after that |
 | `OVERLAY_HOLD_MS` | no | First-run default |
 | `OVERLAY_FADE_MS` | no | First-run default |
@@ -109,4 +109,6 @@ Do not commit `.env` or anything under `data/`.
 npm test
 ```
 
-Docker build runs `npm test` then `tsc`. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, and persisted app sessions.
+GitHub Actions runs `npm test` and `tsc --noEmit` on push. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, message history cap, hashed app sessions, and log levels. The Docker image build compiles only (`tsc`); CI is the test gate.
+
+`public/overlays/chat/party.wav` is a ~2.4 MB disco sting used by `!party`. Replace it in place if you want a smaller or different clip.

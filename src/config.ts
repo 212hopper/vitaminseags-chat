@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloneCommandFlags, cloneCustomCommands, DEFAULT_COMMANDS, type CommandFlags, type CustomCommand } from "./chat/catalog.js";
 import { cloneTimedMessages, type TimedMessage } from "./chat/timed.js";
+import { parseLogLevel, type LogLevel } from "./log.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -64,25 +65,9 @@ export type AppConfig = {
   refreshToken: string;
   adminUsername: string;
   adminPassword: string;
-  logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
+  logLevel: LogLevel;
   overlay: OverlayConfig;
 };
-
-function envLogLevel(): AppConfig["logLevel"] {
-  const raw = env("LOG_LEVEL", "info").toLowerCase();
-  if (
-    raw === "fatal" ||
-    raw === "error" ||
-    raw === "warn" ||
-    raw === "info" ||
-    raw === "debug" ||
-    raw === "trace" ||
-    raw === "silent"
-  ) {
-    return raw;
-  }
-  return "info";
-}
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
@@ -111,7 +96,7 @@ export function loadConfig(): AppConfig {
     refreshToken: env("TWITCH_REFRESH_TOKEN") || env("refresh"),
     adminUsername: env("ADMIN_USERNAME"),
     adminPassword: env("ADMIN_PASSWORD"),
-    logLevel: envLogLevel(),
+    logLevel: parseLogLevel(env("LOG_LEVEL", "info")),
     overlay: {
       maxMessages: envNumber("OVERLAY_MAX_MESSAGES", 14),
       holdMs: envNumber("OVERLAY_HOLD_MS", 25_000),
@@ -141,12 +126,13 @@ export const OAUTH_SCOPES = [
   "bits:read",
 ] as const;
 
-export function buildAuthorizeUrl(config: AppConfig): string {
+export function buildAuthorizeUrl(config: AppConfig, state: string): string {
   const url = new URL("https://id.twitch.tv/oauth2/authorize");
   url.searchParams.set("client_id", config.clientId);
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", OAUTH_SCOPES.join(" "));
+  url.searchParams.set("state", state);
   url.searchParams.set("force_verify", "true");
   return url.toString();
 }

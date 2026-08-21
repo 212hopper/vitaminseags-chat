@@ -40,7 +40,8 @@ test("overlay settings clamp layout and ignore bad fonts", () => {
 });
 
 test("legacy boolean command flags still enable or disable", () => {
-  const next = sanitizeOverlaySettings({ commands: { party: false } as never }, base());
+  const fromDisk = JSON.parse('{"commands":{"party":false}}') as Partial<OverlaySettings>;
+  const next = sanitizeOverlaySettings(fromDisk, base());
   assert.equal(next.commands.party.enabled, false);
   assert.equal(next.commands.party.staffGuarantee, true);
 });

@@ -1,7 +1,8 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AccountRole } from "../store/accounts.js";
+import { safeEqual } from "../store/accounts.js";
 import { log } from "../log.js";
 
 export type SessionAccount = {
@@ -10,7 +11,9 @@ export type SessionAccount = {
 };
 
 const COOKIE = "vseags_session";
+const OAUTH_COOKIE = "vseags_oauth_state";
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const OAUTH_TTL_SEC = 600;
 const PRUNE_MS = 60 * 60 * 1000;
 
 type Session = SessionAccount & { expiresAt: number };
@@ -43,21 +46,27 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
+export function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 export async function loadSessionStore(filePath: string): Promise<SessionStore> {
   await mkdir(path.dirname(filePath), { recursive: true });
   const sessions = new Map<string, Session>();
   try {
     const parsed = JSON.parse(await readFile(filePath, "utf8")) as Record<string, Partial<Session>>;
     const now = Date.now();
-    for (const [token, value] of Object.entries(parsed)) {
+    for (const [key, value] of Object.entries(parsed)) {
+      if (!/^[a-f0-9]{64}$/i.test(key)) {
+        continue;
+      }
       if (
-        typeof token === "string" &&
         typeof value.username === "string" &&
         (value.role === "admin" || value.role === "user") &&
         typeof value.expiresAt === "number" &&
         value.expiresAt > now
       ) {
-        sessions.set(token, {
+        sessions.set(key.toLowerCase(), {
           username: value.username,
           role: value.role,
           expiresAt: value.expiresAt,
@@ -95,7 +104,7 @@ export async function loadSessionStore(filePath: string): Promise<SessionStore> 
   return {
     create(account) {
       const token = randomBytes(24).toString("hex");
-      sessions.set(token, { ...account, expiresAt: Date.now() + TTL_MS });
+      sessions.set(hashSessionToken(token), { ...account, expiresAt: Date.now() + TTL_MS });
       void persist();
       return token;
     },
@@ -104,12 +113,13 @@ export async function loadSessionStore(filePath: string): Promise<SessionStore> 
       if (!token) {
         return null;
       }
-      const session = sessions.get(token);
+      const key = hashSessionToken(token);
+      const session = sessions.get(key);
       if (!session) {
         return null;
       }
       if (session.expiresAt < Date.now()) {
-        sessions.delete(token);
+        sessions.delete(key);
         void persist();
         return null;
       }
@@ -117,7 +127,7 @@ export async function loadSessionStore(filePath: string): Promise<SessionStore> 
     },
     destroy(cookieHeader) {
       const token = parseCookies(cookieHeader)[COOKIE];
-      if (token && sessions.delete(token)) {
+      if (token && sessions.delete(hashSessionToken(token))) {
         void persist();
       }
     },
@@ -130,9 +140,9 @@ export async function loadSessionStore(filePath: string): Promise<SessionStore> 
 function prune(sessions: Map<string, Session>): boolean {
   const now = Date.now();
   let changed = false;
-  for (const [token, session] of sessions) {
+  for (const [key, session] of sessions) {
     if (session.expiresAt < now) {
-      sessions.delete(token);
+      sessions.delete(key);
       changed = true;
     }
   }
@@ -161,6 +171,39 @@ export function clearSessionCookie(secure: boolean): string {
   return parts.join("; ");
 }
 
+export function oauthStateCookie(state: string, secure: boolean): string {
+  const parts = [
+    `${OAUTH_COOKIE}=${state}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${OAUTH_TTL_SEC}`,
+  ];
+  if (secure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+export function clearOauthStateCookie(secure: boolean): string {
+  const parts = [`${OAUTH_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) {
+    parts.push("Secure");
+  }
+  return parts.join("; ");
+}
+
+export function readOauthStateCookie(cookieHeader: string | undefined): string | undefined {
+  return parseCookies(cookieHeader)[OAUTH_COOKIE];
+}
+
+export function oauthStateMatches(expected: string | undefined, received: string | undefined): boolean {
+  if (!expected || !received) {
+    return false;
+  }
+  return safeEqual(expected, received);
+}
+
 export function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/health" ||
@@ -168,8 +211,8 @@ export function isPublicPath(pathname: string): boolean {
     pathname.startsWith("/login/") ||
     pathname === "/api/login" ||
     pathname === "/api/logout" ||
-    pathname === "/oauth" ||
-    pathname.startsWith("/oauth/") ||
+    pathname === "/oauth/callback" ||
+    pathname.startsWith("/oauth/callback/") ||
     pathname.startsWith("/overlays/") ||
     pathname === "/ws"
   );
