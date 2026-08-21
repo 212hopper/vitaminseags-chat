@@ -100,7 +100,7 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - Fastify request logs omit cookies. App and Fastify logs share `{ ts, level, msg }` JSON (`LOG_LEVEL`, optional `FASTIFY_LOG_LEVEL`).
 - Set `TRUST_PROXY=true` only when a reverse proxy sets `X-Forwarded-For`; otherwise login rate limits key on the proxy IP.
 - App sessions persist in `data/sessions.json` (sha256 of the cookie token as the key) so a container restart does not force a dashboard re-login.
-- Chat history per user is capped at 2000 lines.
+- Chat history per user is capped at 2,000 lines, with 500-line slack so trim is not a per-message rewrite.
 - `restart: unless-stopped` on the compose service.
 
 ## Tests

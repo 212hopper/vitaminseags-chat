@@ -4,8 +4,9 @@ import path from "node:path";
 import { RefreshingAuthProvider } from "@twurple/auth";
 import type { AccessToken } from "@twurple/auth";
 import type { AppConfig } from "../config.js";
-import { OAUTH_SCOPES, OAUTH_STATE_TTL_MS } from "../config.js";
+import { OAUTH_SCOPES } from "../config.js";
 import { log } from "../log.js";
+import { OAUTH_STATE_TTL_MS } from "../server/session.js";
 import { safeEqual } from "../store/accounts.js";
 import type { StatusStore } from "../status.js";
 
@@ -182,7 +183,13 @@ export async function createAuthProvider(
 
   const authorize = async (): Promise<string> => {
     status.patch({ phase: "needs_login", user: null, eventSub: false });
-    log.info(`Authorize this app in a browser: ${config.publicBaseUrl}/oauth`);
+    if (config.adminUsername && config.adminPassword) {
+      log.info(
+        `Authorize this app in a browser: sign in at ${config.publicBaseUrl}/login/ first, then open ${config.publicBaseUrl}/oauth`,
+      );
+    } else {
+      log.info(`Authorize this app in a browser: ${config.publicBaseUrl}/oauth`);
+    }
     const code = await oauth.wait();
     return applyCode(code);
   };

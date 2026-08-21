@@ -131,8 +131,6 @@ export const OAUTH_SCOPES = [
   "bits:read",
 ] as const;
 
-export const OAUTH_STATE_TTL_MS = 600_000;
-
 export function buildAuthorizeUrl(config: AppConfig, state: string): string {
   const url = new URL("https://id.twitch.tv/oauth2/authorize");
   url.searchParams.set("client_id", config.clientId);

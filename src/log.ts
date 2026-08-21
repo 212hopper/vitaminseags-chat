@@ -87,25 +87,59 @@ export const log = {
   },
 };
 
+function emitPinoLine(line: string): void {
+  const rec = JSON.parse(line) as Record<string, unknown>;
+  const level =
+    typeof rec.level === "number" ? (PINO_LEVEL_NAMES[rec.level] ?? "info") : String(rec.level ?? "info");
+  const msg = typeof rec.msg === "string" ? rec.msg : "";
+  const ts = typeof rec.time === "number" ? new Date(rec.time).toISOString() : new Date().toISOString();
+  const extra: Record<string, unknown> = { ...rec };
+  delete extra.level;
+  delete extra.time;
+  delete extra.msg;
+  delete extra.pid;
+  delete extra.hostname;
+  delete extra.v;
+  emit(level, msg, Object.keys(extra).length ? extra : undefined, ts);
+}
+
+export function takeCompleteLines(pending: string, chunk: string): { pending: string; lines: string[] } {
+  let buffer = pending + chunk;
+  const lines: string[] = [];
+  let nl = buffer.indexOf("\n");
+  while (nl !== -1) {
+    const line = buffer.slice(0, nl).replace(/\r$/, "");
+    buffer = buffer.slice(nl + 1);
+    if (line) {
+      lines.push(line);
+    }
+    nl = buffer.indexOf("\n");
+  }
+  return { pending: buffer, lines };
+}
+
 export function pinoToAppLogStream(): Writable {
-  return new Writable({
-    write(chunk, _encoding, callback) {
+  let pending = "";
+  const consume = (chunk: string) => {
+    const split = takeCompleteLines(pending, chunk);
+    pending = split.pending;
+    for (const line of split.lines) {
       try {
-        const rec = JSON.parse(String(chunk)) as Record<string, unknown>;
-        const level =
-          typeof rec.level === "number" ? (PINO_LEVEL_NAMES[rec.level] ?? "info") : String(rec.level ?? "info");
-        const msg = typeof rec.msg === "string" ? rec.msg : "";
-        const ts = typeof rec.time === "number" ? new Date(rec.time).toISOString() : new Date().toISOString();
-        const extra: Record<string, unknown> = { ...rec };
-        delete extra.level;
-        delete extra.time;
-        delete extra.msg;
-        delete extra.pid;
-        delete extra.hostname;
-        delete extra.v;
-        emit(level, msg, Object.keys(extra).length ? extra : undefined, ts);
+        emitPinoLine(line);
       } catch {
-        process.stdout.write(chunk);
+        // drop a malformed line rather than printing raw pino JSON
+      }
+    }
+  };
+  return new Writable({
+    write(chunk, encoding, callback) {
+      void encoding;
+      consume(typeof chunk === "string" ? chunk : Buffer.from(chunk as Uint8Array).toString("utf8"));
+      callback();
+    },
+    final(callback) {
+      if (pending) {
+        consume("\n");
       }
       callback();
     },

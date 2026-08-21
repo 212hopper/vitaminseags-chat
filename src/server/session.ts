@@ -4,7 +4,6 @@ import path from "node:path";
 import type { AccountRole } from "../store/accounts.js";
 import { safeEqual } from "../store/accounts.js";
 import { log } from "../log.js";
-import { OAUTH_STATE_TTL_MS } from "../config.js";
 
 export type SessionAccount = {
   username: string;
@@ -14,6 +13,7 @@ export type SessionAccount = {
 const COOKIE = "vseags_session";
 const OAUTH_COOKIE = "vseags_oauth_state";
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const OAUTH_STATE_TTL_MS = 600_000;
 const OAUTH_TTL_SEC = OAUTH_STATE_TTL_MS / 1000;
 const PRUNE_MS = 60 * 60 * 1000;
 

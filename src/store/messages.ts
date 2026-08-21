@@ -17,6 +17,7 @@ export type MessageStore = {
 };
 
 export const MAX_MESSAGES_PER_USER = 2_000;
+export const TRIM_SLACK = 500;
 
 function safeUserId(userId: string): string | null {
   return /^\d+$/.test(userId) ? userId : null;
@@ -24,10 +25,17 @@ function safeUserId(userId: string): string | null {
 
 export function jsonlLineCount(raw: string): number {
   let count = 0;
-  for (const line of raw.split("\n")) {
-    if (line) {
+  let start = 0;
+  while (start < raw.length) {
+    const nl = raw.indexOf("\n", start);
+    const end = nl === -1 ? raw.length : nl;
+    if (end > start) {
       count += 1;
     }
+    if (nl === -1) {
+      break;
+    }
+    start = nl + 1;
   }
   return count;
 }
@@ -51,6 +59,7 @@ async function existingLineCount(filePath: string): Promise<number> {
 export async function loadMessageStore(
   dir: string,
   maxPerUser = MAX_MESSAGES_PER_USER,
+  trimSlack = TRIM_SLACK,
 ): Promise<MessageStore> {
   await mkdir(dir, { recursive: true });
   let writing: Promise<void> = Promise.resolve();
@@ -85,7 +94,7 @@ export async function loadMessageStore(
           await appendFile(filePath, `${JSON.stringify(message)}\n`, "utf8");
           const next = (counts.get(userId) ?? 0) + 1;
           counts.set(userId, next);
-          if (next > maxPerUser) {
+          if (next > maxPerUser + trimSlack) {
             counts.set(userId, await trimToCap(filePath));
           }
         })
