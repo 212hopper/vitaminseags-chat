@@ -89,7 +89,7 @@ npm start
 body { background-color: rgba(0, 0, 0, 0) !important; }
 ```
 
-- Layout, font, hold/fade, spotlights, and look presets live on **Settings**. Chat commands, who-can-use, hit chance, `!help` blurbs, and custom replies live on **Commands**. Repeating plugs live on **Timed chat**.
+- Layout, font, line and message colour, hold/fade, spotlights, and look presets live on **Settings**. Chat commands, who-can-use, hit chance, `!help` blurbs, and custom replies live on **Commands**. Repeating plugs live on **Timed chat**.
 - Add `?preview=dvd` to bounce the DVD logo, or `?preview=sbon` to preview song-battle spotlights, without a chat roll.
 
 ## Pages
@@ -98,7 +98,7 @@ body { background-color: rgba(0, 0, 0, 0) !important; }
 | --- | --- |
 | `/overlays/chat/` | OBS chat overlay (public) |
 | `/dashboard/` | Live status, chat log, activity, Twitch player |
-| `/dashboard/settings/` | Hold, fade, font, chat box, spotlights, look presets |
+| `/dashboard/settings/` | Hold, fade, font, chat box, spotlights, look presets, 7TV/BTTV/FFZ refresh |
 | `/dashboard/commands/` | Enable commands, who, hit chance, `!help` text, custom replies or help-only tips |
 | `/dashboard/timers/` | Timed chat: free text, live `!help`, or a custom command reply |
 | `/dashboard/remaps/` | On-screen name remaps |

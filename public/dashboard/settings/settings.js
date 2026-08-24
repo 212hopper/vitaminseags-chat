@@ -16,6 +16,9 @@
   const maxMessages = document.getElementById("max-messages");
   const hideCommands = document.getElementById("hide-commands");
   const settingsFlash = document.getElementById("settings-flash");
+  const emoteRefresh = document.getElementById("emote-refresh");
+  const emoteStatus = document.getElementById("emote-status");
+  const emoteFlash = document.getElementById("emote-flash");
   const form = document.getElementById("settings-form");
   const lookForm = document.getElementById("look-form");
   const lookFlash = document.getElementById("look-flash");
@@ -23,6 +26,8 @@
   const fontCustom = document.getElementById("font-custom");
   const fontCustomWrap = document.getElementById("font-custom-wrap");
   const fontSize = document.getElementById("font-size");
+  const tickColor = document.getElementById("tick-color");
+  const textColor = document.getElementById("text-color");
   const posX = document.getElementById("pos-x");
   const posY = document.getElementById("pos-y");
   const boxWidth = document.getElementById("box-width");
@@ -54,6 +59,14 @@
   function setFlash(node, message, isError) {
     node.classList.toggle("is-error", Boolean(isError));
     setText(node, message);
+  }
+
+  function toColorInput(value, fallback) {
+    const hex = String(value ?? "").trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      return hex.toLowerCase();
+    }
+    return fallback;
   }
 
   function currentFontFamily() {
@@ -101,6 +114,8 @@
     return {
       fontFamily: currentFontFamily(),
       fontSizePx: Math.round(Number(fontSize.value)),
+      tickColor: toColorInput(tickColor?.value, "#d6ff3f"),
+      textColor: toColorInput(textColor?.value, "#f4f1ea"),
       posX: Math.round(Number(posX.value)),
       posY: Math.round(Number(posY.value)),
       boxWidth: Math.round(Number(boxWidth.value)),
@@ -117,6 +132,9 @@
       canvasChat.style.top = `${(Number(posY.value) / CANVAS_H) * 100}%`;
       canvasChat.style.width = `${(Number(boxWidth.value) / CANVAS_W) * 100}%`;
       canvasChat.style.height = `${(Number(boxHeight.value) / CANVAS_H) * 100}%`;
+      const line = toColorInput(tickColor?.value, "#d6ff3f");
+      canvasChat.style.borderColor = line;
+      canvasChat.style.background = `color-mix(in srgb, ${line} 18%, transparent)`;
     }
     if (!canvasSpots) {
       return;
@@ -293,6 +311,8 @@
           {
             fontFamily: preset.fontFamily,
             fontSizePx: preset.fontSizePx,
+            tickColor: preset.tickColor,
+            textColor: preset.textColor,
             posX: preset.posX,
             posY: preset.posY,
             boxWidth: preset.boxWidth,
@@ -347,6 +367,12 @@
     if (!lookDirty) {
       setFontPreset(overlay.fontFamily ?? fontPreset.value);
       fontSize.value = String(overlay.fontSizePx ?? 17);
+      if (tickColor) {
+        tickColor.value = toColorInput(overlay.tickColor, "#d6ff3f");
+      }
+      if (textColor) {
+        textColor.value = toColorInput(overlay.textColor, "#f4f1ea");
+      }
       posX.value = String(overlay.posX ?? 16);
       posY.value = String(overlay.posY ?? 200);
       boxWidth.value = String(overlay.boxWidth ?? 420);
@@ -479,7 +505,7 @@
     });
   }
 
-  for (const input of [fontPreset, fontCustom, fontSize, posX, posY, boxWidth, boxHeight, spotlightDarkness]) {
+  for (const input of [fontPreset, fontCustom, fontSize, tickColor, textColor, posX, posY, boxWidth, boxHeight, spotlightDarkness]) {
     input?.addEventListener("input", () => {
       lookDirty = true;
       updatePreview();
@@ -552,9 +578,46 @@
       .catch((error) => setFlash(presetFlash, error.message, true));
   });
 
+  function describeEmotes(result) {
+    const count = result?.count ?? 0;
+    const names = Array.isArray(result?.channelProviders) ? result.channelProviders : [];
+    if (!count) {
+      return "No third-party emotes loaded yet.";
+    }
+    if (!names.length) {
+      return `${count} global third-party emotes loaded. No 7TV / BTTV / FFZ channel page found.`;
+    }
+    return `${count} third-party emotes loaded. Channel catalogs: ${names.join(", ")}.`;
+  }
+
+  function showEmotes(result) {
+    setText(emoteStatus, describeEmotes(result));
+  }
+
+  emoteRefresh?.addEventListener("click", () => {
+    if (emoteRefresh.disabled) {
+      return;
+    }
+    emoteRefresh.disabled = true;
+    setFlash(emoteFlash, "Checking…", false);
+    void readJson("/api/emotes/refresh", { method: "POST" })
+      .then((result) => {
+        showEmotes(result);
+        setFlash(emoteFlash, "Catalog updated. New emotes apply to the next chat messages.", false);
+      })
+      .catch((error) => setFlash(emoteFlash, error.message || "Could not refresh emotes.", true))
+      .finally(() => {
+        emoteRefresh.disabled = false;
+      });
+  });
+
   void readJson("/api/settings")
     .then(fillSettings)
     .catch(() => {
       setFlash(settingsFlash, "Could not load overlay settings.", true);
     });
+
+  void readJson("/api/emotes")
+    .then(showEmotes)
+    .catch(() => setText(emoteStatus, "Could not load emote catalog status."));
 })();

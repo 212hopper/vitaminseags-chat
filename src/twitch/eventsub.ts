@@ -30,7 +30,7 @@ import {
 import { log } from "../log.js";
 import { BadgeCatalog } from "./badges.js";
 import type { BotChat } from "./chat-send.js";
-import { collapseZeroWidth, EmoteCatalog, twitchEmoteUrl } from "./emotes.js";
+import { collapseZeroWidth, twitchEmoteUrl, type EmoteCatalog } from "./emotes.js";
 import { findLayoutPreset, listLayoutPresetHelp, lookFieldsFrom } from "../store/presets.js";
 
 const EMOTE_REFRESH_MS = 30 * 60 * 1000;
@@ -106,9 +106,9 @@ export async function startEventSub(options: {
   remaps: RemapStore;
   hidden: HiddenStore;
   botChat: BotChat;
+  emotes: EmoteCatalog;
 }): Promise<EventSubWsListener> {
-  const { api, bus, broadcasterId, userId, status, users, messages, settings, remaps, hidden, botChat } = options;
-  const emotes = new EmoteCatalog();
+  const { api, bus, broadcasterId, userId, status, users, messages, settings, remaps, hidden, botChat, emotes } = options;
   const badges = new BadgeCatalog();
   let lastHelpAt = 0;
   let lastPresetAt = 0;

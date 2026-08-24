@@ -22,7 +22,7 @@ Twitch Helix + EventSub WS
    ├── GET  /health         liveness (public)
    ├── GET  /oauth          Twitch login
    ├── GET  /dashboard/*    streamer UI (app login)
-   └── GET  /api/*          settings, commands, timers, remaps, hidden, stats
+   └── GET/POST /api/*     settings, emotes, commands, timers, remaps, hidden, stats
 ```
 
 Boot order in `src/index.ts`: HTTP (so OAuth and `/health` work) → auth → Helix client → EventSub → stream poller → timed messages → shutdown hooks.
@@ -41,7 +41,7 @@ Boot order in `src/index.ts`: HTTP (so OAuth and `/health` work) → auth → He
 | `src/twitch/eventsub.ts` | Subscribe, map Twitch → `AppEvent`, handle `!` commands |
 | `src/twitch/chat-send.ts` | Helix send + echo filter for overlay |
 | `src/twitch/timed-messages.ts` | Interval posters using the same send helper |
-| `src/twitch/emotes.ts` | 7TV / BTTV / FFZ catalog + text parse |
+| `src/twitch/emotes.ts` | 7TV / BTTV / FFZ catalog + text parse; Settings can refresh without restart |
 | `src/twitch/badges.ts` | Twitch badge URL cache |
 | `src/server/http.ts` | Fastify, static, `/ws`, OAuth, dashboard APIs |
 | `src/server/session.ts` | App login cookies, persisted to `data/sessions.json` |
@@ -94,7 +94,7 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - `textContent` / `createElement` for chatter text. Never `innerHTML` with user text.
 - Only `https:` image URLs (emotes, badges).
 - Handle `hello`, `overlay.settings`, `overlay.party`, `overlay.dvd`, `chat.message`, `chat.message.delete`, `chat.clear`. Ignore unknown `type`s.
-- `!sbon` / `!sboff` persist `spotlightEnabled` on overlay settings. Hole count, shape (circle or rectangle), size (W×H), position, feather (edge falloff), and dimness live on Settings with the chat box. Party hides the dimming until it ends. `!preset name` applies a saved look. `?preview=sbon` and `?preview=dvd` on the overlay URL are OBS test hooks.
+- `!sbon` / `!sboff` persist `spotlightEnabled` on overlay settings. Hole count, shape (circle or rectangle), size (W×H), position, feather (edge falloff), dimness, and chat line/message colours live on Settings with the chat box. Party hides the dimming until it ends. `!preset name` applies a saved look. `?preview=sbon` and `?preview=dvd` on the overlay URL are OBS test hooks.
 - OBS: leave “Shutdown source when not visible” off. Allow the source to control audio for party sound (`public/overlays/chat/party.wav`, replaceable ~2.4 MB clip). `?preview=dvd` bounces the DVD logo for 60 seconds; `?preview=sbon` shows the song-battle spotlights.
 
 ## Ops

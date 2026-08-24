@@ -1,3 +1,5 @@
+import { DEFAULT_TEXT_COLOR, DEFAULT_TICK_COLOR, sanitizeCssColour } from "../chat/colour.js";
+
 export type SpotlightShape = "circle" | "rect";
 
 export type SpotlightHole = {
@@ -12,6 +14,8 @@ export type SpotlightHole = {
 export type LayoutLook = {
   fontFamily: string;
   fontSizePx: number;
+  tickColor: string;
+  textColor: string;
   posX: number;
   posY: number;
   boxWidth: number;
@@ -151,6 +155,8 @@ export function lookFieldsFrom(look: LayoutLook): LayoutLook {
   return {
     fontFamily: look.fontFamily,
     fontSizePx: look.fontSizePx,
+    tickColor: look.tickColor,
+    textColor: look.textColor,
     posX: look.posX,
     posY: look.posY,
     boxWidth: look.boxWidth,
@@ -190,6 +196,8 @@ export function sanitizeLayoutPreset(
       typeof raw.fontSizePx === "number" && Number.isFinite(raw.fontSizePx)
         ? raw.fontSizePx
         : (fallback?.fontSizePx ?? 17),
+    tickColor: sanitizeCssColour(raw.tickColor, fallback?.tickColor ?? DEFAULT_TICK_COLOR),
+    textColor: sanitizeCssColour(raw.textColor, fallback?.textColor ?? DEFAULT_TEXT_COLOR),
     posX: typeof raw.posX === "number" && Number.isFinite(raw.posX) ? raw.posX : (fallback?.posX ?? 16),
     posY: typeof raw.posY === "number" && Number.isFinite(raw.posY) ? raw.posY : (fallback?.posY ?? 200),
     boxWidth:

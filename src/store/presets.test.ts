@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { DEFAULT_TEXT_COLOR, DEFAULT_TICK_COLOR } from "../chat/colour.js";
 import { DEFAULT_FONT } from "../config.js";
 import {
   createLayoutPreset,
@@ -14,6 +15,8 @@ import {
 const look = {
   fontFamily: DEFAULT_FONT,
   fontSizePx: 17,
+  tickColor: DEFAULT_TICK_COLOR,
+  textColor: DEFAULT_TEXT_COLOR,
   posX: 16,
   posY: 200,
   boxWidth: 420,
@@ -57,6 +60,8 @@ test("layout presets match by name and reject duplicates", () => {
   });
   const fields = lookFieldsFrom(created);
   assert.equal(fields.spotlightCount, 3);
+  assert.equal(fields.tickColor, DEFAULT_TICK_COLOR);
+  assert.equal(fields.textColor, DEFAULT_TEXT_COLOR);
   assert.equal("id" in fields, false);
   assert.match(listLayoutPresetHelp([created]), /Song battle/);
 });

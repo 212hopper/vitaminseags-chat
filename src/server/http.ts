@@ -9,6 +9,7 @@ import { buildAuthorizeUrl } from "../config.js";
 import type { EventBus, ChatMessagePayload, ActivityPayload } from "../events.js";
 import { toWireEvent } from "../events.js";
 import type { OAuthWaiter } from "../twitch/auth.js";
+import type { EmoteCatalog } from "../twitch/emotes.js";
 import type { StatusStore } from "../status.js";
 import type { UserStore } from "../store/users.js";
 import type { MessageStore } from "../store/messages.js";
@@ -82,8 +83,9 @@ export async function startHttpServer(options: {
   remaps: RemapStore;
   hidden: HiddenStore;
   accounts: AccountStore;
+  emotes: EmoteCatalog;
 }): Promise<FastifyInstance> {
-  const { config, bus, oauth, status, users, messages, settings, remaps, hidden, accounts } = options;
+  const { config, bus, oauth, status, users, messages, settings, remaps, hidden, accounts, emotes } = options;
   const app = Fastify({
     trustProxy: config.trustProxy,
     logger: {
@@ -439,6 +441,32 @@ export async function startHttpServer(options: {
     bus.emit({ type: "overlay.settings", payload: overlay });
     return overlay;
   });
+
+  app.get("/api/emotes", async () => emotes.snapshot());
+
+  app.post(
+    "/api/emotes/refresh",
+    {
+      config: {
+        rateLimit: {
+          max: 6,
+          timeWindow: "1 minute",
+        },
+      },
+    },
+    async (_request, reply) => {
+      const broadcasterId = status.snapshot().broadcaster?.id;
+      if (!broadcasterId) {
+        return reply.status(503).send({ error: "Twitch is not connected yet." });
+      }
+      try {
+        return await emotes.refresh(broadcasterId);
+      } catch (error) {
+        log.warn("Manual emote refresh failed.", error);
+        return reply.status(502).send({ error: "Could not refresh emote catalogs." });
+      }
+    },
+  );
 
   app.get("/api/remaps", async () => ({ remaps: remaps.list() }));
 

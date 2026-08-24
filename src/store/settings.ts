@@ -10,6 +10,7 @@ import {
   type CommandId,
 } from "../chat/catalog.js";
 import { cloneTimedMessages, sanitizeTimedMessages } from "../chat/timed.js";
+import { DEFAULT_TEXT_COLOR, DEFAULT_TICK_COLOR, sanitizeCssColour } from "../chat/colour.js";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, DEFAULT_FONT, type OverlayConfig } from "../config.js";
 import {
   cloneLayoutPresets,
@@ -81,6 +82,16 @@ export function sanitizeOverlaySettings(
   }
   if (typeof partial.fontSizePx === "number" && Number.isFinite(partial.fontSizePx)) {
     next.fontSizePx = clamp(Math.round(partial.fontSizePx), 10, 72);
+  }
+  if ("tickColor" in partial) {
+    next.tickColor = sanitizeCssColour(partial.tickColor, current.tickColor || DEFAULT_TICK_COLOR);
+  } else if (!next.tickColor) {
+    next.tickColor = DEFAULT_TICK_COLOR;
+  }
+  if ("textColor" in partial) {
+    next.textColor = sanitizeCssColour(partial.textColor, current.textColor || DEFAULT_TEXT_COLOR);
+  } else if (!next.textColor) {
+    next.textColor = DEFAULT_TEXT_COLOR;
   }
   if (typeof partial.boxWidth === "number" && Number.isFinite(partial.boxWidth)) {
     next.boxWidth = clamp(Math.round(partial.boxWidth), 160, CANVAS_WIDTH);

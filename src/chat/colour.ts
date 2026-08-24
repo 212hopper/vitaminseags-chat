@@ -107,6 +107,16 @@ export function parseColour(input: string): string | null {
   return null;
 }
 
+export const DEFAULT_TICK_COLOR = "#d6ff3f";
+export const DEFAULT_TEXT_COLOR = "#f4f1ea";
+
+export function sanitizeCssColour(value: unknown, fallback: string): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  return parseColour(value) ?? fallback;
+}
+
 export function parseColourCommand(text: string): { color: string } | "invalid" | null {
   const match = text.trim().match(/^!(?:colour|color)(?:\s+(\S+))?$/i);
   if (!match) {

@@ -14,6 +14,7 @@ import { loadHiddenStore } from "./store/hidden.js";
 import { loadAccountStore } from "./store/accounts.js";
 import { createAuthProvider, OAuthWaiter } from "./twitch/auth.js";
 import { createBotChat } from "./twitch/chat-send.js";
+import { EmoteCatalog } from "./twitch/emotes.js";
 import { startEventSub } from "./twitch/eventsub.js";
 import { startStreamPoller } from "./twitch/stream.js";
 import { startTimedMessages } from "./twitch/timed-messages.js";
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
     path.join(config.dataDir, "app-users.json"),
     config.adminUsername,
   );
+  const emotes = new EmoteCatalog();
 
   if (!config.adminUsername || !config.adminPassword) {
     log.warn("ADMIN_USERNAME / ADMIN_PASSWORD are not set. App pages are open on the network.");
@@ -52,6 +54,7 @@ async function main(): Promise<void> {
     remaps,
     hidden,
     accounts,
+    emotes,
   });
   const { provider: authProvider, userId } = await createAuthProvider(config, oauth, status);
   const api = new ApiClient({ authProvider });
@@ -96,6 +99,7 @@ async function main(): Promise<void> {
     remaps,
     hidden,
     botChat,
+    emotes,
   });
   const stopStreamPoller = startStreamPoller(api, broadcasterId, status);
   const stopTimedMessages = startTimedMessages({ settings, status, botChat });

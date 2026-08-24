@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cloneCommandFlags, DEFAULT_COMMANDS } from "../chat/catalog.js";
 import { DEFAULT_FONT } from "../config.js";
+import { DEFAULT_TEXT_COLOR, DEFAULT_TICK_COLOR } from "../chat/colour.js";
 import { cloneSpotlightHoles, DEFAULT_SPOTLIGHT_COUNT, DEFAULT_SPOTLIGHT_HOLES } from "./presets.js";
 import { sanitizeOverlaySettings, type OverlaySettings } from "./settings.js";
 
@@ -19,6 +20,8 @@ function base(): OverlaySettings {
     layoutPresets: [],
     fontFamily: DEFAULT_FONT,
     fontSizePx: 17,
+    tickColor: DEFAULT_TICK_COLOR,
+    textColor: DEFAULT_TEXT_COLOR,
     posX: 16,
     posY: 200,
     boxWidth: 420,
@@ -45,6 +48,30 @@ test("overlay settings clamp layout and ignore bad fonts", () => {
   assert.equal(next.posX, 0);
 });
 
+test("tick and text colours accept hex and ignore junk", () => {
+  const next = sanitizeOverlaySettings(
+    {
+      tickColor: "#ABC",
+      textColor: "red",
+    },
+    base(),
+  );
+  assert.equal(next.tickColor, "#aabbcc");
+  assert.equal(next.textColor, "#ff0000");
+  const rejected = sanitizeOverlaySettings(
+    {
+      tickColor: "url(javascript:alert(1))",
+      textColor: "not-a-colour",
+    },
+    base(),
+  );
+  assert.equal(rejected.tickColor, DEFAULT_TICK_COLOR);
+  assert.equal(rejected.textColor, DEFAULT_TEXT_COLOR);
+  const fromDisk = sanitizeOverlaySettings(JSON.parse("{}") as Partial<OverlaySettings>, base());
+  assert.equal(fromDisk.tickColor, DEFAULT_TICK_COLOR);
+  assert.equal(fromDisk.textColor, DEFAULT_TEXT_COLOR);
+});
+
 test("spotlight darkness clamps and missing values keep defaults", () => {
   const clamped = sanitizeOverlaySettings({ spotlightDarknessPct: 180, spotlightEnabled: true }, base());
   assert.equal(clamped.spotlightDarknessPct, 100);
@@ -69,6 +96,8 @@ test("spotlight count and holes sanitize, and presets can be stored", () => {
           name: "Song battle",
           fontFamily: "Arial, Helvetica, sans-serif",
           fontSizePx: 18,
+          tickColor: "#ff8800",
+          textColor: "#eeeeee",
           posX: 20,
           posY: 40,
           boxWidth: 400,
@@ -90,6 +119,8 @@ test("spotlight count and holes sanitize, and presets can be stored", () => {
   assert.equal(next.spotlightHoles[2]?.x, 960);
   assert.equal(next.layoutPresets.length, 1);
   assert.equal(next.layoutPresets[0]?.name, "Song battle");
+  assert.equal(next.layoutPresets[0]?.tickColor, "#ff8800");
+  assert.equal(next.layoutPresets[0]?.textColor, "#eeeeee");
   assert.equal(next.layoutPresets[0]?.spotlightHoles.length, 6);
 });
 

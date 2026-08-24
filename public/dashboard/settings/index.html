@@ -18,7 +18,10 @@
 
       <section class="panel">
         <h2>Overlay settings</h2>
-        <p class="muted">These apply immediately to the OBS Browser Source. Env vars are only used as first-run defaults.</p>
+        <p class="muted">
+          Hold is how long a line stays fully visible. Fade out is the dissolve after that. These apply immediately
+          to the OBS Browser Source. Env vars are only used as first-run defaults.
+        </p>
         <form id="settings-form">
           <div class="grid">
             <label>
@@ -26,7 +29,7 @@
               <input id="hold-seconds" name="holdSeconds" type="number" min="0" max="3600" step="1" required />
             </label>
             <label>
-              Fade (milliseconds)
+              Fade out (milliseconds)
               <input id="fade-ms" name="fadeOutMs" type="number" min="0" max="30000" step="50" required />
             </label>
             <label>
@@ -43,6 +46,20 @@
           </div>
           <p id="settings-flash" class="flash"></p>
         </form>
+      </section>
+
+      <section class="panel">
+        <h2>Emotes</h2>
+        <p class="muted">
+          Twitch emotes arrive with each chat line. 7TV, BTTV, and FFZ catalogs load at start and every 30 minutes.
+          After you add channel emotes on those sites, refresh here instead of restarting. BTTV’s API can lag a few
+          minutes behind the website.
+        </p>
+        <p id="emote-status" class="muted">Loading catalog…</p>
+        <div class="row">
+          <button type="button" id="emote-refresh" class="secondary">Check for new emotes</button>
+        </div>
+        <p id="emote-flash" class="flash"></p>
       </section>
 
       <section class="panel">
@@ -72,6 +89,14 @@
             <label>
               Text size (px)
               <input id="font-size" type="number" min="10" max="72" step="1" required />
+            </label>
+            <label>
+              Line colour
+              <input id="tick-color" type="color" value="#d6ff3f" />
+            </label>
+            <label>
+              Message colour
+              <input id="text-color" type="color" value="#f4f1ea" />
             </label>
             <label>
               X

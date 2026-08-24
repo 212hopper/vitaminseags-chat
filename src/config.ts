@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cloneCommandFlags, cloneCustomCommands, DEFAULT_COMMANDS, type CommandFlags, type CustomCommand } from "./chat/catalog.js";
+import { DEFAULT_TEXT_COLOR, DEFAULT_TICK_COLOR } from "./chat/colour.js";
 import { cloneTimedMessages, type TimedMessage } from "./chat/timed.js";
 import { parseLogLevel, parseFastifyLogLevel, type FastifyLogLevel, type LogLevel } from "./log.js";
 import {
@@ -53,6 +54,8 @@ export type OverlayConfig = {
   layoutPresets: LayoutPreset[];
   fontFamily: string;
   fontSizePx: number;
+  tickColor: string;
+  textColor: string;
   posX: number;
   posY: number;
   boxWidth: number;
@@ -128,6 +131,8 @@ export function loadConfig(): AppConfig {
       layoutPresets: cloneLayoutPresets([]),
       fontFamily: DEFAULT_FONT,
       fontSizePx: 17,
+      tickColor: DEFAULT_TICK_COLOR,
+      textColor: DEFAULT_TEXT_COLOR,
       posX: 16,
       posY: 200,
       boxWidth: 420,

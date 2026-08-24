@@ -121,14 +121,35 @@ function addFfz(map: Map<string, EmoteDef>, sets: Record<string, FfzSet> | undef
   }
 }
 
+export type EmoteRefreshResult = {
+  count: number;
+  channelProviders: string[];
+};
+
 export class EmoteCatalog {
   #byName = new Map<string, EmoteDef>();
+  #refreshing: Promise<EmoteRefreshResult> | null = null;
+  #channelProviders: string[] = [];
 
   lookup(name: string): EmoteDef | undefined {
     return this.#byName.get(name);
   }
 
-  async refresh(broadcasterId: string): Promise<void> {
+  snapshot(): EmoteRefreshResult {
+    return { count: this.#byName.size, channelProviders: [...this.#channelProviders] };
+  }
+
+  async refresh(broadcasterId: string): Promise<EmoteRefreshResult> {
+    if (this.#refreshing) {
+      return this.#refreshing;
+    }
+    this.#refreshing = this.#load(broadcasterId).finally(() => {
+      this.#refreshing = null;
+    });
+    return this.#refreshing;
+  }
+
+  async #load(broadcasterId: string): Promise<EmoteRefreshResult> {
     const next = new Map<string, EmoteDef>();
 
     const [stvGlobal, stvUser, bttvGlobal, bttvUser, ffzGlobal, ffzRoom] = await Promise.all([
@@ -151,13 +172,19 @@ export class EmoteCatalog {
     addFfz(next, ffzGlobal?.sets);
     addFfz(next, ffzRoom?.sets);
 
-    this.#byName = next;
-
     const channelProviders = [
       stvUser ? "7TV" : null,
       bttvUser ? "BTTV" : null,
       ffzRoom ? "FFZ" : null,
     ].filter((name): name is string => name !== null);
+
+    if (next.size === 0 && this.#byName.size > 0) {
+      log.warn("Emote refresh returned nothing; keeping the previous catalog.");
+      return this.snapshot();
+    }
+
+    this.#byName = next;
+    this.#channelProviders = channelProviders;
 
     if (channelProviders.length === 0) {
       log.info(
@@ -168,6 +195,8 @@ export class EmoteCatalog {
         `Loaded ${next.size} third-party emotes (7TV / BTTV / FFZ), including channel catalogs: ${channelProviders.join(", ")}.`,
       );
     }
+
+    return { count: next.size, channelProviders };
   }
 
   parseText(text: string): ChatFragment[] {

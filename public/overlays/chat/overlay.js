@@ -51,6 +51,12 @@
       root.style.setProperty("--font-size", `${overlay.fontSizePx}px`);
       root.style.setProperty("--emote-size", `${Math.round(overlay.fontSizePx * 1.6)}px`);
     }
+    if (typeof overlay.tickColor === "string" && overlay.tickColor) {
+      root.style.setProperty("--accent", overlay.tickColor);
+    }
+    if (typeof overlay.textColor === "string" && overlay.textColor) {
+      root.style.setProperty("--text", overlay.textColor);
+    }
     if (typeof overlay.posX === "number") {
       root.style.setProperty("--chat-x", `${overlay.posX}px`);
     }
@@ -212,7 +218,7 @@
 
   function removeMessage(id, animate) {
     const node = stage.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    if (!node) {
+    if (!node || node.classList.contains("is-leaving")) {
       return;
     }
     const existing = timers.get(id);
@@ -220,13 +226,38 @@
       clearTimeout(existing);
       timers.delete(id);
     }
-    if (!animate || settings.fadeOutMs <= 0) {
+    const fadeMs = Math.max(0, Number(settings.fadeOutMs) || 0);
+    if (!animate || fadeMs <= 0) {
       node.remove();
       return;
     }
-    void node.offsetWidth;
     node.classList.add("is-leaving");
-    window.setTimeout(() => node.remove(), settings.fadeOutMs);
+    const finish = () => {
+      if (node.parentNode) {
+        node.remove();
+      }
+    };
+    if (typeof node.animate === "function") {
+      if (typeof node.getAnimations === "function") {
+        for (const running of node.getAnimations()) {
+          running.cancel();
+        }
+      }
+      const anim = node.animate(
+        [
+          { opacity: 1, transform: "none" },
+          { opacity: 0, transform: "translateY(-10px)" },
+        ],
+        { duration: fadeMs, easing: "linear", fill: "forwards" },
+      );
+      anim.finished.then(finish, finish);
+      window.setTimeout(finish, fadeMs + 80);
+      return;
+    }
+    node.style.animation = "none";
+    void node.offsetWidth;
+    node.style.animation = `leave ${fadeMs}ms linear forwards`;
+    window.setTimeout(finish, fadeMs);
   }
 
   function capMessages() {
