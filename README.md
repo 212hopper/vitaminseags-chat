@@ -39,7 +39,7 @@ Volume `chat-data` holds tokens, overlay settings, remaps, sessions, and chat st
 docker compose up -d --build
 ```
 
-Health: `GET /health` (public). Compose and the image both health-check that URL. Logs are JSON lines (`LOG_LEVEL`, default `info`). Request logs do not include cookies.
+Health: `GET /health` (public). Compose and the Dockerfile health-check that URL. Logs are JSON lines (`LOG_LEVEL`, default `info`). Request logs do not include cookies.
 
 ### Portainer
 
@@ -49,9 +49,7 @@ Use a **Git repository** stack, the same way as an app like dazn-clock (`build: 
 2. URL `https://github.com/212hopper/vitaminseags-chat`, compose path `docker-compose.yml`
 3. Add the keys from [`.env.example`](.env.example) under **Environment variables** (loading a `.env` in the UI injects variables; it does not need a file at `/data/compose/N/.env`)
 
-Portainer clones the repo, so `build: .` has a real Dockerfile. Pasting compose into the web editor and building does **not** — Compose then runs with no project directory and often fails with `mkdir /.docker: permission denied`. That is a Portainer/build-context issue, not this app.
-
-If you only paste YAML, drop the `build:` line and pull `ghcr.io/212hopper/vitaminseags-chat:latest` instead. After the first CI publish, set that GitHub package to **Public** so the pull does not need a token.
+Portainer clones the repo, so `build: .` has a real Dockerfile. Do not paste compose into the web editor: Compose then has no project directory and cannot build.
 
 Set `PUBLIC_BASE_URL` to the URL you will open in a browser (no trailing slash), and register `PUBLIC_BASE_URL/oauth/callback` on the Twitch app.
 
@@ -143,6 +141,6 @@ Do not commit `.env` or anything under `data/`.
 npm test
 ```
 
-GitHub Actions runs `npm test` and `tsc --noEmit` on push, then publishes `ghcr.io/212hopper/vitaminseags-chat:latest` from `main` for optional image pulls. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, message history cap, hashed app sessions, and log levels.
+GitHub Actions runs `npm test` and `tsc --noEmit` on push. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, message history cap, hashed app sessions, and log levels.
 
 `public/overlays/chat/party.wav` is a ~2.4 MB disco sting used by `!party`. Replace it in place if you want a smaller or different clip.

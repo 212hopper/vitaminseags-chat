@@ -1,8 +1,7 @@
-# Git/Portainer: build from this repo (same as other stacks). Image tag is also published to GHCR.
+# Git/Portainer: build from this repo (same as other stacks).
 services:
   companion:
     build: .
-    image: ghcr.io/212hopper/vitaminseags-chat:latest
     container_name: vitaminseags-chat
     restart: unless-stopped
     ports:
