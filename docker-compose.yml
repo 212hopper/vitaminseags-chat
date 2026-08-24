@@ -5,11 +5,25 @@ services:
     restart: unless-stopped
     ports:
       - "30009:30009"
-    env_file:
-      - .env
     environment:
       HOST: "0.0.0.0"
       PORT: "30009"
+      TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET}
+      TWITCH_CHANNEL: ${TWITCH_CHANNEL}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      TWITCH_REDIRECT_URI: ${TWITCH_REDIRECT_URI:-}
+      TWITCH_ACCESS_TOKEN: ${TWITCH_ACCESS_TOKEN:-}
+      TWITCH_REFRESH_TOKEN: ${TWITCH_REFRESH_TOKEN:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      FASTIFY_LOG_LEVEL: ${FASTIFY_LOG_LEVEL:-}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      OVERLAY_MAX_MESSAGES: ${OVERLAY_MAX_MESSAGES:-14}
+      OVERLAY_HOLD_MS: ${OVERLAY_HOLD_MS:-25000}
+      OVERLAY_FADE_MS: ${OVERLAY_FADE_MS:-600}
+      OVERLAY_HIDE_COMMANDS: ${OVERLAY_HIDE_COMMANDS:-true}
     volumes:
       - chat-data:/app/data
     healthcheck:

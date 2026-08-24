@@ -85,7 +85,7 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - Twurple 8 events use `emitter.on(emitter.onRefresh, handler)`, not `emitter.onRefresh(handler)`.
 - Scopes: `user:read:chat`, `user:write:chat`, `user:bot`, `channel:bot`, `moderator:read:followers`, `channel:read:subscriptions`, `bits:read`. Re-authorize after a scope change, then restart the container.
 - Replies are sent as the authorized Twitch account. A separate hopbot identity needs a second token (not implemented).
-- Default listen port: **30009**. `HOST` defaults to `0.0.0.0`. Redirect URL must match `TWITCH_REDIRECT_URI`. Non-localhost Twitch redirects generally need https.
+- Default listen port: **30009**. `HOST` defaults to `0.0.0.0`. Redirect URL must match `TWITCH_REDIRECT_URI`. Non-localhost Twitch redirects need **https** in front of this process (reverse proxy or tunnel). Compose passes env vars into the container; it does not require a `.env` file on the Portainer host.
 
 ## Overlays
 

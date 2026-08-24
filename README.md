@@ -20,7 +20,7 @@ Twitch chat → EventSub → typed event bus → `/ws` → overlay. Overlays nev
 
 1. Copy [`.env.example`](.env.example) to `.env`. Set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `PUBLIC_BASE_URL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`.
 2. Add the exact Redirect URL `PUBLIC_BASE_URL/oauth/callback` on the [Twitch app](https://dev.twitch.tv/console/apps). Non-localhost usually needs **https**.
-3. `docker compose up -d --build` (or Portainer stack from this compose file).
+3. `docker compose up -d --build` (or a Portainer stack — see [Deploy](#deploy)).
 4. Open `PUBLIC_BASE_URL/oauth`, log in as the channel (or a bot that can read this chat), **accept every permission**, then **restart the container** if the homepage says scopes were updated.
 5. OBS → Browser Source:
    - URL: `PUBLIC_BASE_URL/overlays/chat/`
@@ -33,13 +33,35 @@ If you change Twitch scopes (or see missing-permission warnings), Re-authorize T
 
 ## Deploy
 
-Portainer: **Stacks → Add stack**, this repo’s [`docker-compose.yml`](docker-compose.yml), env from `.env`. Volume `chat-data` holds tokens, overlay settings, remaps, sessions, and chat stats.
+Volume `chat-data` holds tokens, overlay settings, remaps, sessions, and chat stats.
 
 ```bash
 docker compose up -d --build
 ```
 
 Health: `GET /health` (public). Compose and the image both health-check that URL. Logs are JSON lines (`LOG_LEVEL`, default `info`). Request logs do not include cookies.
+
+### Portainer
+
+Compose does **not** require a `.env` file on the Portainer host. Paste this repo’s [`docker-compose.yml`](docker-compose.yml), then add the same keys as [`.env.example`](.env.example) under the stack **Environment variables** (Load from `.env` file in the UI is fine — that injects variables, it does not create `/data/compose/N/.env`).
+
+Set `PUBLIC_BASE_URL` to the URL you will open in a browser (no trailing slash), and register `PUBLIC_BASE_URL/oauth/callback` on the Twitch app.
+
+### HTTPS (Twitch OAuth)
+
+This process only speaks **HTTP**. Twitch will not accept `http://` redirect URLs except `localhost` / `127.0.0.1`. A public IP plus a forwarded port is not enough.
+
+Put TLS in **front** of port 30009 (do not add a second service to this compose file):
+
+1. Point a **domain** at your house (for example `chat.yourdomain.com`). Certificates are issued for names, not raw IPs.
+2. Terminate HTTPS with a reverse proxy or tunnel, then proxy to `http://127.0.0.1:30009`.
+   - **Cloudflare Tunnel** (`cloudflared`): easiest on a home connection; no need to open 80/443; you get `https://chat.yourdomain.com`.
+   - **Caddy** (or nginx) on the same host: open 80 and 443, automatic Let’s Encrypt if the domain resolves here.
+3. Set `PUBLIC_BASE_URL=https://chat.yourdomain.com` and `TWITCH_REDIRECT_URI=https://chat.yourdomain.com/oauth/callback` (or omit the redirect and let it default).
+4. Set `TRUST_PROXY=true` so login rate limits use `X-Forwarded-For`.
+5. Save the same HTTPS callback on the [Twitch app](https://dev.twitch.tv/console/apps).
+
+OBS on the LAN can still load `http://YOUR_LAN_IP:30009/overlays/chat/` if you prefer not to send the overlay out to the internet. Twitch only cares about the OAuth callback URL.
 
 Local without Docker:
 
