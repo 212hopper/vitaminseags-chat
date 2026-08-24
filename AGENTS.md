@@ -40,7 +40,7 @@ Chat replies go through `createBotChat` (`src/twitch/chat-send.ts`) so EventSub 
 
 ## Run
 
-Portainer / Docker: `docker compose up -d --build` (see README).
+Portainer / Docker: `docker compose up -d` (see README).
 
 Local: `npm start`
 

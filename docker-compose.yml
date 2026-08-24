@@ -1,6 +1,8 @@
+# Pulls a pre-built image so Portainer does not need to compile from source.
+# Local code changes: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   companion:
-    build: .
+    image: ghcr.io/212hopper/vitaminseags-chat:latest
     container_name: vitaminseags-chat
     restart: unless-stopped
     ports:

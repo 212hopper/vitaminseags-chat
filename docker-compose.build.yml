@@ -1,0 +1,6 @@
+# Optional overlay for developing against local source.
+# docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  companion:
+    build: .
+    image: ghcr.io/212hopper/vitaminseags-chat:latest
