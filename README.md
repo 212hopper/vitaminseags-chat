@@ -20,7 +20,7 @@ Twitch chat → EventSub → typed event bus → `/ws` → overlay. Overlays nev
 
 1. Copy [`.env.example`](.env.example) to `.env`. Set `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL`, `PUBLIC_BASE_URL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD`.
 2. Add the exact Redirect URL `PUBLIC_BASE_URL/oauth/callback` on the [Twitch app](https://dev.twitch.tv/console/apps). Non-localhost usually needs **https**.
-3. `docker compose up -d` (or a Portainer stack — see [Deploy](#deploy)).
+3. `docker compose up -d --build` (or a Portainer **Git** stack — see [Deploy](#deploy)).
 4. Open `PUBLIC_BASE_URL/oauth`, log in as the channel (or a bot that can read this chat), **accept every permission**, then **restart the container** if the homepage says scopes were updated.
 5. OBS → Browser Source:
    - URL: `PUBLIC_BASE_URL/overlays/chat/`
@@ -36,26 +36,24 @@ If you change Twitch scopes (or see missing-permission warnings), Re-authorize T
 Volume `chat-data` holds tokens, overlay settings, remaps, sessions, and chat stats.
 
 ```bash
-docker compose up -d
-```
-
-That pulls `ghcr.io/212hopper/vitaminseags-chat:latest`. To rebuild from local source:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+docker compose up -d --build
 ```
 
 Health: `GET /health` (public). Compose and the image both health-check that URL. Logs are JSON lines (`LOG_LEVEL`, default `info`). Request logs do not include cookies.
 
 ### Portainer
 
-Paste this repo’s [`docker-compose.yml`](docker-compose.yml). It **pulls** a published image and does not build on the host (Portainer’s compose build often fails with `mkdir /.docker: permission denied`).
+Use a **Git repository** stack, the same way as an app like dazn-clock (`build: .` with a Dockerfile in the repo):
 
-Add the same keys as [`.env.example`](.env.example) under the stack **Environment variables**. Loading a `.env` in the UI injects variables; it does not create `/data/compose/N/.env`.
+1. Stacks → Add stack → **Repository**
+2. URL `https://github.com/212hopper/vitaminseags-chat`, compose path `docker-compose.yml`
+3. Add the keys from [`.env.example`](.env.example) under **Environment variables** (loading a `.env` in the UI injects variables; it does not need a file at `/data/compose/N/.env`)
 
-The image is `ghcr.io/212hopper/vitaminseags-chat:latest`. After the first CI publish, set that GitHub package to **Public** (Repo → Packages → package → Package settings → Change visibility) so Portainer can pull without a token.
+Portainer clones the repo, so `build: .` has a real Dockerfile. Pasting compose into the web editor and building does **not** — Compose then runs with no project directory and often fails with `mkdir /.docker: permission denied`. That is a Portainer/build-context issue, not this app.
 
-Set `PUBLIC_BASE_URL` to the URL you will open in a browser (no trailing slash), and register `PUBLIC_BASE_URL/oauth/callback` on the Twitch app. To pick up a new release, re-pull the image and redeploy the stack.
+If you only paste YAML, drop the `build:` line and pull `ghcr.io/212hopper/vitaminseags-chat:latest` instead. After the first CI publish, set that GitHub package to **Public** so the pull does not need a token.
+
+Set `PUBLIC_BASE_URL` to the URL you will open in a browser (no trailing slash), and register `PUBLIC_BASE_URL/oauth/callback` on the Twitch app.
 
 ### HTTPS (Twitch OAuth)
 
@@ -145,6 +143,6 @@ Do not commit `.env` or anything under `data/`.
 npm test
 ```
 
-GitHub Actions runs `npm test` and `tsc --noEmit` on push, then publishes `ghcr.io/212hopper/vitaminseags-chat:latest` from `main`. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, message history cap, hashed app sessions, and log levels.
+GitHub Actions runs `npm test` and `tsc --noEmit` on push, then publishes `ghcr.io/212hopper/vitaminseags-chat:latest` from `main` for optional image pulls. Tests cover colour parsing, command who-locks, custom/`!help` listing, timers, overlay setting sanitise, message history cap, hashed app sessions, and log levels.
 
 `public/overlays/chat/party.wav` is a ~2.4 MB disco sting used by `!party`. Replace it in place if you want a smaller or different clip.
