@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   canUseWho,
   cloneCommandFlags,
+  commandChancePct,
   commandHits,
   commandWho,
   createCustomCommand,
@@ -14,6 +15,7 @@ import {
   reservedTriggers,
   sanitizeCommandState,
   sanitizeCustomCommand,
+  serializeCommands,
 } from "./catalog.js";
 
 test("who locks", () => {
@@ -28,6 +30,29 @@ test("legacy boolean command state keeps who and help", () => {
   assert.equal(next.enabled, false);
   assert.equal(next.staffGuarantee, fallback.staffGuarantee);
   assert.equal(next.who, "anyone");
+  assert.equal(next.chancePct, 1);
+});
+
+test("chance percent clamps and stored hit chance is used", () => {
+  const clamped = sanitizeCommandState({ chancePct: 250 }, DEFAULT_COMMANDS.dvd);
+  assert.equal(clamped.chancePct, 100);
+  const missing = sanitizeCommandState({ enabled: true }, DEFAULT_COMMANDS.dvd);
+  assert.equal(missing.chancePct, 4);
+
+  const flags = cloneCommandFlags(DEFAULT_COMMANDS);
+  flags.party.staffGuarantee = false;
+  flags.party.chancePct = 50;
+  assert.equal(commandChancePct(flags, "party"), 50);
+  assert.equal(commandChancePct(flags, "colour"), null);
+  const original = Math.random;
+  Math.random = () => 0.49;
+  try {
+    assert.equal(commandHits(flags, "party", false), true);
+    Math.random = () => 0.5;
+    assert.equal(commandHits(flags, "party", false), false);
+  } finally {
+    Math.random = original;
+  }
 });
 
 test("party staff guarantee skips the roll", () => {
@@ -46,6 +71,10 @@ test("party staff guarantee skips the roll", () => {
 test("custom commands reject built-ins and match chat text", () => {
   assert.equal(normalizeTrigger("!Discord"), "discord");
   assert.equal(reservedTriggers().has("party"), true);
+  assert.equal(reservedTriggers().has("dvd"), true);
+  assert.equal(reservedTriggers().has("sbon"), true);
+  assert.equal(reservedTriggers().has("sboff"), true);
+  assert.equal(reservedTriggers().has("preset"), true);
   const created = createCustomCommand({
     trigger: "discord",
     reply: "Join the Discord: https://example.com",
@@ -148,5 +177,23 @@ test("!help lists enabled anyone commands and skips mods-only", () => {
 test("commandWho falls back to catalog defaults", () => {
   const flags = cloneCommandFlags(DEFAULT_COMMANDS);
   assert.equal(commandWho(flags, "showchat"), "mods");
+  assert.equal(commandWho(flags, "sbon"), "mods");
+  assert.equal(commandWho(flags, "sboff"), "mods");
+  assert.equal(commandWho(flags, "preset"), "mods");
   assert.equal(isCommandEnabled(flags, "help"), true);
+});
+
+test("serializeCommands exposes hit chance for party and dvd", () => {
+  const flags = cloneCommandFlags(DEFAULT_COMMANDS);
+  flags.dvd.chancePct = 12;
+  const views = serializeCommands(flags, []);
+  const party = views.find((item) => item.id === "party");
+  const dvd = views.find((item) => item.id === "dvd");
+  const colour = views.find((item) => item.id === "colour");
+  assert.equal(party?.hasChance, true);
+  assert.equal(party?.chancePct, 1);
+  assert.equal(dvd?.hasChance, true);
+  assert.equal(dvd?.chancePct, 12);
+  assert.equal(colour?.hasChance, false);
+  assert.equal(colour?.chancePct, null);
 });

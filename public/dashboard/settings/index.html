@@ -7,11 +7,14 @@
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body>
-    <main>
+    <main class="main--wide">
       <nav id="app-nav" class="nav"></nav>
 
       <h1>Settings</h1>
-      <p class="muted">Overlay timers, command hiding, font, and 1920×1080 position. Quick show/hide stays on the dashboard.</p>
+      <p class="muted">
+        Overlay timers, chat box, spotlights, and saved presets. Quick show/hide stays on the dashboard.
+        Mods can apply a preset live with <code>!preset name</code>.
+      </p>
 
       <section class="panel">
         <h2>Overlay settings</h2>
@@ -43,9 +46,13 @@
       </section>
 
       <section class="panel">
-        <h2>Font and position</h2>
-        <p class="muted">Set the OBS Browser Source to <strong>1920×1080</strong>. Position is the top-left of the chat box on that canvas.</p>
-        <form id="layout-form">
+        <h2>Look</h2>
+        <p class="muted">
+          Chat box is the green rectangle. Spotlights are the shapes <code>!sbon</code> punches through the dim.
+          Drag a shape on the preview, or type X / Y / size. Set the OBS Browser Source to <strong>1920×1080</strong>.
+        </p>
+        <form id="look-form">
+          <h3 class="subhead">Chat box</h3>
           <div class="grid">
             <label>
               Font
@@ -83,17 +90,91 @@
               <input id="box-height" type="number" min="120" max="1080" step="1" required />
             </label>
           </div>
-          <div class="canvas-wrap">
-            <div class="canvas-preview" aria-hidden="true">
+
+          <h3 class="subhead">Spotlights</h3>
+          <div class="grid">
+            <label>
+              How many
+              <select id="spotlight-count">
+                <option value="0">None (full dim)</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+              </select>
+            </label>
+            <label>
+              Dimness outside shapes (%)
+              <input id="spotlight-darkness" name="spotlightDarknessPct" type="number" min="0" max="100" step="1" required />
+            </label>
+          </div>
+          <p class="muted" style="margin-top: 0.6rem">
+            40 means the rest of the screen is 40% black. W and H are width and height in pixels —
+            a circle with different W and H becomes an oval. Feather is how softly the edge fades
+            (0 is a hard cut, 70 is a wide blur).
+          </p>
+          <table class="spotlight-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Shape</th>
+                <th>X</th>
+                <th>Y</th>
+                <th>W</th>
+                <th>H</th>
+                <th>Feather</th>
+              </tr>
+            </thead>
+            <tbody id="spotlight-rows"></tbody>
+          </table>
+
+          <div class="canvas-wrap canvas-wrap--wide">
+            <div id="canvas-preview" class="canvas-preview" aria-hidden="true">
+              <div id="canvas-spots"></div>
               <div id="canvas-chat" class="canvas-chat"></div>
               <div class="canvas-label">1920×1080</div>
             </div>
           </div>
           <div class="row" style="margin-top: 1rem">
-            <button type="submit">Save layout</button>
+            <button type="submit">Save look</button>
           </div>
-          <p id="layout-flash" class="flash"></p>
+          <p id="look-flash" class="flash"></p>
         </form>
+      </section>
+
+      <section class="panel">
+        <h2>Presets</h2>
+        <p class="muted">
+          Store the current chat box, font, and spotlight layout. Apply from here or with
+          <code>!preset name</code> in chat (mods). This does not turn spotlights on or off — use
+          <code>!sbon</code> / <code>!sboff</code> for that.
+        </p>
+        <form id="preset-form">
+          <div class="grid">
+            <label>
+              New preset name
+              <input id="preset-name" type="text" maxlength="32" required placeholder="Song battle" />
+            </label>
+          </div>
+          <div class="row" style="margin-top: 1rem">
+            <button type="submit">Save current as preset</button>
+          </div>
+        </form>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Spotlights</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="preset-rows">
+            <tr><td colspan="3" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+        <p id="preset-flash" class="flash"></p>
       </section>
     </main>
     <script src="./settings.js"></script>

@@ -46,8 +46,27 @@ body.chat-hidden .chat {
   background-color: rgba(0, 0, 0, 0);
 }
 
+.spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.spotlight[hidden] {
+  display: none;
+}
+
+.spotlight__canvas {
+  display: block;
+  width: 1920px;
+  height: 1080px;
+}
+
 .chat {
   position: absolute;
+  z-index: 40;
   left: var(--chat-x);
   top: var(--chat-y);
   width: var(--chat-w);
@@ -184,7 +203,7 @@ body.chat-hidden .chat {
 
 .msg.is-partying {
   position: absolute;
-  z-index: 40;
+  z-index: 50;
   width: var(--chat-w);
   margin: 0;
   font-size: var(--font-size);
@@ -213,6 +232,56 @@ body.chat-hidden .chat {
   z-index: 60;
   overflow: hidden;
   pointer-events: none;
+}
+
+.dvd {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dvd[hidden] {
+  display: none;
+}
+
+.dvd__logo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 280px;
+  height: 126px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--dvd-color, #ff2d55);
+  transform: translate(var(--dvd-x, 0px), var(--dvd-y, 0px));
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.5));
+  will-change: transform;
+}
+
+.dvd__logo.is-corner {
+  transform: translate(var(--dvd-x, 0px), var(--dvd-y, 0px)) scale(1.12);
+  filter: drop-shadow(0 0 28px currentColor);
+}
+
+.dvd__word {
+  font-family: Impact, "Arial Black", "Franklin Gothic Heavy", sans-serif;
+  font-size: 72px;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 0.12em;
+  line-height: 0.85;
+}
+
+.dvd__oval {
+  width: 230px;
+  height: 22px;
+  margin-top: -2px;
+  border: 5px solid currentColor;
+  border-radius: 50%;
 }
 
 .disco-orb {

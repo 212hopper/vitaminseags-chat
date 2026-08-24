@@ -1,4 +1,14 @@
-export type CommandId = "colour" | "username" | "showchat" | "hidechat" | "party" | "help";
+export type CommandId =
+  | "colour"
+  | "username"
+  | "showchat"
+  | "hidechat"
+  | "party"
+  | "dvd"
+  | "sbon"
+  | "sboff"
+  | "preset"
+  | "help";
 export type CommandWho = "anyone" | "mods";
 
 export type CommandState = {
@@ -6,6 +16,7 @@ export type CommandState = {
   staffGuarantee: boolean;
   who: CommandWho;
   chatHelp: string;
+  chancePct?: number;
 };
 
 export type CommandFlags = Record<CommandId, CommandState>;
@@ -41,6 +52,7 @@ export type ChatCommandView = {
   enabled: boolean;
   staffGuarantee: boolean;
   hasChance: boolean;
+  chancePct: number | null;
 };
 
 export const CHAT_COMMANDS: ChatCommandInfo[] = [
@@ -76,9 +88,38 @@ export const CHAT_COMMANDS: ChatCommandInfo[] = [
     id: "party",
     names: ["!party"],
     who: "anyone",
-    description: "1% chance to send on-screen chat flying around in colour for 10 seconds.",
+    description: "Chance to send on-screen chat flying around in colour for 10 seconds.",
     chatHelp: "1% chance of party mode",
     chance: 0.01,
+  },
+  {
+    id: "dvd",
+    names: ["!dvd"],
+    who: "anyone",
+    description: "Chance to bounce a DVD logo around the overlay for 60 seconds.",
+    chatHelp: "4% chance of bouncing DVD",
+    chance: 0.04,
+  },
+  {
+    id: "sbon",
+    names: ["!sbon"],
+    who: "mods",
+    description: "Dim the overlay except for the configured spotlight circles.",
+    chatHelp: "turn on spotlights",
+  },
+  {
+    id: "sboff",
+    names: ["!sboff"],
+    who: "mods",
+    description: "Remove the spotlight dimming.",
+    chatHelp: "turn off spotlights",
+  },
+  {
+    id: "preset",
+    names: ["!preset"],
+    who: "mods",
+    description: "Apply a saved chat-box and spotlight preset by name. With no name, list saved presets.",
+    chatHelp: "apply a layout preset",
   },
   {
     id: "help",
@@ -97,18 +138,29 @@ export const DEFAULT_COMMANDS: CommandFlags = {
   showchat: defaultState("showchat"),
   hidechat: defaultState("hidechat"),
   party: defaultState("party", { staffGuarantee: true }),
+  dvd: defaultState("dvd", { staffGuarantee: true }),
+  sbon: defaultState("sbon"),
+  sboff: defaultState("sboff"),
+  preset: defaultState("preset"),
   help: defaultState("help"),
 };
 
 export const MAX_CUSTOM_COMMANDS = 40;
 
+function catalogChancePct(id: CommandId): number | undefined {
+  const chance = CATALOG_BY_ID.get(id)?.chance;
+  return chance == null ? undefined : Math.round(chance * 100);
+}
+
 function defaultState(id: CommandId, extra: Partial<CommandState> = {}): CommandState {
   const info = CATALOG_BY_ID.get(id);
+  const chancePct = catalogChancePct(id);
   return {
     enabled: true,
     staffGuarantee: false,
     who: info?.who ?? "anyone",
     chatHelp: info?.chatHelp ?? "",
+    ...(chancePct != null ? { chancePct } : {}),
     ...extra,
   };
 }
@@ -116,7 +168,7 @@ function defaultState(id: CommandId, extra: Partial<CommandState> = {}): Command
 export function cloneCommandFlags(flags: CommandFlags): CommandFlags {
   const next = {} as CommandFlags;
   for (const id of Object.keys(DEFAULT_COMMANDS) as CommandId[]) {
-    next[id] = { ...(flags[id] ?? DEFAULT_COMMANDS[id]) };
+    next[id] = { ...DEFAULT_COMMANDS[id], ...(flags[id] ?? {}) };
   }
   return next;
 }
@@ -151,16 +203,27 @@ export function canUseWho(who: CommandWho, isStaff: boolean): boolean {
   return who === "anyone" || isStaff;
 }
 
+export function commandChancePct(flags: CommandFlags, id: CommandId): number | null {
+  const fallback = catalogChancePct(id);
+  if (fallback == null) {
+    return null;
+  }
+  const stored = flags[id]?.chancePct;
+  if (typeof stored === "number" && Number.isFinite(stored)) {
+    return sanitizeChancePct(stored, fallback);
+  }
+  return fallback;
+}
+
 export function commandHits(flags: CommandFlags, id: CommandId, isStaff: boolean): boolean {
-  const command = CATALOG_BY_ID.get(id);
-  const chance = command?.chance;
-  if (chance == null) {
+  const chancePct = commandChancePct(flags, id);
+  if (chancePct == null) {
     return true;
   }
   if (isStaff && isStaffGuaranteeEnabled(flags, id)) {
     return true;
   }
-  return Math.random() < chance;
+  return Math.random() * 100 < chancePct;
 }
 
 export function reservedTriggers(): Set<string> {
@@ -192,6 +255,13 @@ export function sanitizeChatHelp(value: unknown, fallback: string): string {
   return value.replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
+export function sanitizeChancePct(value: unknown, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
 export function sanitizeReply(value: unknown, fallback: string): string {
   if (typeof value !== "string") {
     return fallback;
@@ -207,12 +277,16 @@ export function sanitizeCommandState(value: unknown, fallback: CommandState): Co
     return { ...fallback };
   }
   const raw = value as Partial<CommandState>;
-  return {
+  const next: CommandState = {
     enabled: typeof raw.enabled === "boolean" ? raw.enabled : fallback.enabled,
     staffGuarantee: typeof raw.staffGuarantee === "boolean" ? raw.staffGuarantee : fallback.staffGuarantee,
     who: sanitizeWho(raw.who, fallback.who),
     chatHelp: sanitizeChatHelp(raw.chatHelp, fallback.chatHelp),
   };
+  if (fallback.chancePct != null) {
+    next.chancePct = sanitizeChancePct(raw.chancePct, fallback.chancePct);
+  }
+  return next;
 }
 
 export function sanitizeSendReply(value: unknown, fallback: boolean): boolean {
@@ -368,6 +442,7 @@ export function serializeCommands(flags: CommandFlags, custom: CustomCommand[]):
     enabled: isCommandEnabled(flags, command.id),
     staffGuarantee: isStaffGuaranteeEnabled(flags, command.id),
     hasChance: command.chance != null,
+    chancePct: commandChancePct(flags, command.id),
   }));
   const customs = custom.map((command) => ({
     id: command.id,
@@ -381,6 +456,7 @@ export function serializeCommands(flags: CommandFlags, custom: CustomCommand[]):
     enabled: command.enabled,
     staffGuarantee: false,
     hasChance: false,
+    chancePct: null,
   }));
   return [...builtins, ...customs];
 }

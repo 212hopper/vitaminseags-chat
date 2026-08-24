@@ -2,15 +2,32 @@
   const chat = document.getElementById("chat");
   const stage = document.getElementById("stage");
   const disco = document.getElementById("disco");
+  const dvd = document.getElementById("dvd");
+  const dvdLogo = document.getElementById("dvd-logo");
+  const spotlight = document.getElementById("spotlight");
+  const spotlightCanvas = document.getElementById("spotlight-canvas");
   if (!chat || !stage) {
     return;
   }
+
+  const previewSpotlight = /(?:^|[?&])preview=sbon(?:&|$)/.test(location.search);
 
   const settings = {
     maxMessages: 14,
     holdMs: 25_000,
     fadeOutMs: 600,
     chatVisible: true,
+    spotlightEnabled: false,
+    spotlightDarknessPct: 40,
+    spotlightCount: 3,
+    spotlightHoles: [
+      { x: 418, y: 428, w: 610, h: 610, feather: 70, shape: "circle" },
+      { x: 1502, y: 428, w: 610, h: 610, feather: 70, shape: "circle" },
+      { x: 960, y: 858, w: 636, h: 636, feather: 70, shape: "circle" },
+      { x: 960, y: 400, w: 440, h: 440, feather: 70, shape: "circle" },
+      { x: 240, y: 860, w: 360, h: 360, feather: 70, shape: "circle" },
+      { x: 1680, y: 860, w: 360, h: 360, feather: 70, shape: "circle" },
+    ],
   };
 
   const timers = new Map();
@@ -48,6 +65,101 @@
     }
   }
 
+  function holeAxes(hole) {
+    const width = Number(hole.w);
+    const height = Number(hole.h);
+    const radius = Number(hole.r);
+    const w = Number.isFinite(width) ? width : Number.isFinite(radius) ? radius * 2 : 610;
+    const h = Number.isFinite(height) ? height : Number.isFinite(radius) ? radius * 2 : 610;
+    return {
+      rx: Math.max(1, w / 2),
+      ry: Math.max(1, h / 2),
+    };
+  }
+
+  function punchEllipse(ctx, x, y, rx, ry, feather) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx, ry);
+    const inner = Math.min(1 - 1 / Math.max(rx, ry), Math.max(0, 1 - feather));
+    const gradient = ctx.createRadialGradient(0, 0, inner, 0, 0, 1);
+    gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function punchRect(ctx, x, y, rx, ry, feather) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx, ry);
+    const minPx = 1 / Math.max(1, Math.min(rx, ry));
+    const inner = Math.min(1 - minPx, Math.max(0, 1 - feather));
+    const band = 1 - inner;
+    if (band <= minPx) {
+      ctx.fillStyle = "rgba(0, 0, 0, 1)";
+      ctx.fillRect(-1, -1, 2, 2);
+      ctx.restore();
+      return;
+    }
+    const steps = 20;
+    for (let i = 0; i < steps; i += 1) {
+      const t0 = i / steps;
+      const t1 = (i + 1) / steps;
+      const outerS = 1 - t0 * band;
+      const innerS = 1 - t1 * band;
+      ctx.fillStyle = `rgba(0, 0, 0, ${(t0 + t1) / 2})`;
+      ctx.beginPath();
+      ctx.rect(-outerS, -outerS, outerS * 2, outerS * 2);
+      ctx.rect(-innerS, -innerS, innerS * 2, innerS * 2);
+      ctx.fill("evenodd");
+    }
+    ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    ctx.fillRect(-inner, -inner, inner * 2, inner * 2);
+    ctx.restore();
+  }
+
+  function drawSpotlight() {
+    if (!spotlightCanvas) {
+      return;
+    }
+    const ctx = spotlightCanvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    const dark = Math.max(0, Math.min(100, settings.spotlightDarknessPct)) / 100;
+    const holes = (settings.spotlightHoles ?? []).slice(0, Math.max(0, settings.spotlightCount ?? 0));
+    ctx.clearRect(0, 0, 1920, 1080);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = `rgba(0, 0, 0, ${dark})`;
+    ctx.fillRect(0, 0, 1920, 1080);
+    ctx.globalCompositeOperation = "destination-out";
+    for (const hole of holes) {
+      const { rx, ry } = holeAxes(hole);
+      const feather = Math.max(0, Math.min(100, hole.feather ?? 70)) / 100;
+      if (hole.shape === "rect") {
+        punchRect(ctx, hole.x, hole.y, rx, ry, feather);
+      } else {
+        punchEllipse(ctx, hole.x, hole.y, rx, ry, feather);
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  function syncSpotlight() {
+    if (!spotlight) {
+      return;
+    }
+    const visible = settings.spotlightEnabled && !isPartyLive();
+    spotlight.hidden = !visible;
+    if (visible) {
+      drawSpotlight();
+    }
+  }
+
   function clearChat() {
     stopParty();
     chat.replaceChildren();
@@ -80,6 +192,22 @@
         clearChat();
       }
     }
+    if (typeof overlay.spotlightEnabled === "boolean") {
+      settings.spotlightEnabled = overlay.spotlightEnabled;
+    }
+    if (typeof overlay.spotlightDarknessPct === "number") {
+      settings.spotlightDarknessPct = overlay.spotlightDarknessPct;
+    }
+    if (typeof overlay.spotlightCount === "number") {
+      settings.spotlightCount = overlay.spotlightCount;
+    }
+    if (Array.isArray(overlay.spotlightHoles)) {
+      settings.spotlightHoles = overlay.spotlightHoles.map((hole) => ({ ...hole }));
+    }
+    if (previewSpotlight) {
+      settings.spotlightEnabled = true;
+    }
+    syncSpotlight();
   }
 
   function removeMessage(id, animate) {
@@ -336,11 +464,29 @@
         scheduleHold(id);
       }
     }
+    syncSpotlight();
   }
 
   function startParty(durationMs) {
-    stopParty();
     partyUntil = Date.now() + durationMs;
+    window.clearInterval(partyTick);
+    window.clearTimeout(partyTimer);
+    partyTick = 0;
+    partyTimer = 0;
+    stopPartySound();
+    stopDisco();
+    const flying = [...stage.querySelectorAll(".msg.is-partying")];
+    for (const node of flying) {
+      node.classList.remove("is-partying");
+      node.style.left = "";
+      node.style.top = "";
+      node.style.transform = "";
+      node.style.filter = "";
+      node.style.color = "";
+      node.style.removeProperty("--party-color");
+      chat.append(node);
+    }
+    syncSpotlight();
     for (const node of [...chat.querySelectorAll(".msg")]) {
       enlistParty(node);
     }
@@ -349,6 +495,121 @@
     startDisco();
     partyTick = window.setInterval(scatterParty, 140);
     partyTimer = window.setTimeout(() => stopParty(), durationMs);
+  }
+
+  const STAGE_W = 1920;
+  const STAGE_H = 1080;
+  const DVD_W = 280;
+  const DVD_H = 126;
+  const DVD_SPEED = 210;
+  const DVD_COLORS = ["#ff2d55", "#ffd60a", "#32d74b", "#64d2ff", "#bf5af2", "#ff9f0a", "#ffffff"];
+
+  let dvdRaf = 0;
+  let dvdTimer = 0;
+  let dvdLastTs = 0;
+  let dvdX = 0;
+  let dvdY = 0;
+  let dvdVx = DVD_SPEED;
+  let dvdVy = DVD_SPEED;
+  let dvdColor = 0;
+  let dvdCornerTimer = 0;
+
+  function setDvdColor(index) {
+    dvdColor = index % DVD_COLORS.length;
+    dvdLogo?.style.setProperty("--dvd-color", DVD_COLORS[dvdColor]);
+  }
+
+  function placeDvd() {
+    dvdLogo?.style.setProperty("--dvd-x", `${dvdX}px`);
+    dvdLogo?.style.setProperty("--dvd-y", `${dvdY}px`);
+  }
+
+  function stopDvd() {
+    if (dvdRaf) {
+      window.cancelAnimationFrame(dvdRaf);
+      dvdRaf = 0;
+    }
+    window.clearTimeout(dvdTimer);
+    window.clearTimeout(dvdCornerTimer);
+    dvdTimer = 0;
+    dvdCornerTimer = 0;
+    dvdLastTs = 0;
+    dvdLogo?.classList.remove("is-corner");
+    if (dvd) {
+      dvd.hidden = true;
+    }
+  }
+
+  function bounceDvdColor() {
+    setDvdColor(dvdColor + 1);
+  }
+
+  function hitDvdCorner() {
+    if (!dvdLogo) {
+      return;
+    }
+    dvdLogo.classList.add("is-corner");
+    window.clearTimeout(dvdCornerTimer);
+    dvdCornerTimer = window.setTimeout(() => {
+      dvdLogo.classList.remove("is-corner");
+    }, 220);
+  }
+
+  function tickDvd(ts) {
+    if (!dvdLastTs) {
+      dvdLastTs = ts;
+    }
+    const dt = Math.min(0.05, (ts - dvdLastTs) / 1000);
+    dvdLastTs = ts;
+    dvdX += dvdVx * dt;
+    dvdY += dvdVy * dt;
+
+    const maxX = STAGE_W - DVD_W;
+    const maxY = STAGE_H - DVD_H;
+    let hitX = false;
+    let hitY = false;
+    if (dvdX <= 0) {
+      dvdX = 0;
+      dvdVx = Math.abs(dvdVx);
+      hitX = true;
+    } else if (dvdX >= maxX) {
+      dvdX = maxX;
+      dvdVx = -Math.abs(dvdVx);
+      hitX = true;
+    }
+    if (dvdY <= 0) {
+      dvdY = 0;
+      dvdVy = Math.abs(dvdVy);
+      hitY = true;
+    } else if (dvdY >= maxY) {
+      dvdY = maxY;
+      dvdVy = -Math.abs(dvdVy);
+      hitY = true;
+    }
+    if (hitX || hitY) {
+      bounceDvdColor();
+    }
+    if (hitX && hitY) {
+      hitDvdCorner();
+    }
+    placeDvd();
+    dvdRaf = window.requestAnimationFrame(tickDvd);
+  }
+
+  function startDvd(durationMs) {
+    stopDvd();
+    if (!dvd || !dvdLogo) {
+      return;
+    }
+    dvd.hidden = false;
+    dvdX = Math.random() * (STAGE_W - DVD_W);
+    dvdY = Math.random() * (STAGE_H - DVD_H);
+    dvdVx = DVD_SPEED * (Math.random() < 0.5 ? 1 : -1);
+    dvdVy = DVD_SPEED * (Math.random() < 0.5 ? 1 : -1);
+    setDvdColor(Math.floor(Math.random() * DVD_COLORS.length));
+    placeDvd();
+    dvdRaf = window.requestAnimationFrame(tickDvd);
+    dvdTimer = window.setTimeout(() => stopDvd(), durationMs);
   }
 
   function handleEvent(event) {
@@ -362,6 +623,10 @@
     }
     if (event.type === "overlay.party") {
       startParty(event.payload?.durationMs ?? 10_000);
+      return;
+    }
+    if (event.type === "overlay.dvd") {
+      startDvd(event.payload?.durationMs ?? 60_000);
       return;
     }
     if (event.type === "chat.message") {
@@ -407,4 +672,11 @@
   connect();
   fitStage();
   window.addEventListener("resize", fitStage);
+  if (/(?:^|[?&])preview=dvd(?:&|$)/.test(location.search)) {
+    startDvd(60_000);
+  }
+  if (/(?:^|[?&])preview=sbon(?:&|$)/.test(location.search)) {
+    settings.spotlightEnabled = true;
+    syncSpotlight();
+  }
 })();

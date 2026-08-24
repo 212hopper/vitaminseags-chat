@@ -15,7 +15,16 @@
   </head>
   <body>
     <div id="stage" class="stage">
+      <div id="spotlight" class="spotlight" hidden>
+        <canvas id="spotlight-canvas" class="spotlight__canvas" width="1920" height="1080"></canvas>
+      </div>
       <div id="disco" class="disco" aria-hidden="true"></div>
+      <div id="dvd" class="dvd" hidden>
+        <div id="dvd-logo" class="dvd__logo">
+          <span class="dvd__word">DVD</span>
+          <span class="dvd__oval"></span>
+        </div>
+      </div>
       <div id="chat" class="chat" role="log" aria-live="polite"></div>
     </div>
     <script src="./overlay.js"></script>

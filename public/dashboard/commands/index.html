@@ -13,8 +13,10 @@
       <h1>Chat commands</h1>
       <p class="muted">
         Enable or disable each command, choose who can use it, and edit the short line that
-        <code>!help</code> shows for public commands. Custom commands can send a prepared reply,
-        or they can be listed in <code>!help</code> only with no bot reply.
+        <code>!help</code> shows for public commands. Chance commands have a Hit % you can
+        raise or lower; Mods instant hit still skips the roll for the broadcaster and mods.
+        Custom commands can send a prepared reply, or they can be listed in <code>!help</code>
+        only with no bot reply.
       </p>
 
       <section class="panel">
@@ -26,12 +28,13 @@
               <th>Who</th>
               <th>What it does</th>
               <th>!help text</th>
+              <th>Hit %</th>
               <th>Enabled</th>
               <th>Mods instant hit</th>
             </tr>
           </thead>
           <tbody id="builtin-rows">
-            <tr><td colspan="6" class="muted">Loading…</td></tr>
+            <tr><td colspan="7" class="muted">Loading…</td></tr>
           </tbody>
         </table>
       </section>

@@ -11,6 +11,15 @@ import {
 } from "../chat/catalog.js";
 import { cloneTimedMessages, sanitizeTimedMessages } from "../chat/timed.js";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, DEFAULT_FONT, type OverlayConfig } from "../config.js";
+import {
+  cloneLayoutPresets,
+  cloneSpotlightHoles,
+  DEFAULT_SPOTLIGHT_COUNT,
+  DEFAULT_SPOTLIGHT_HOLES,
+  sanitizeLayoutPresets,
+  sanitizeSpotlightCount,
+  sanitizeSpotlightHoles,
+} from "./presets.js";
 
 export type OverlaySettings = OverlayConfig;
 
@@ -42,6 +51,30 @@ export function sanitizeOverlaySettings(
   }
   if (typeof partial.chatVisible === "boolean") {
     next.chatVisible = partial.chatVisible;
+  }
+  if (typeof partial.spotlightEnabled === "boolean") {
+    next.spotlightEnabled = partial.spotlightEnabled;
+  }
+  if (typeof partial.spotlightDarknessPct === "number" && Number.isFinite(partial.spotlightDarknessPct)) {
+    next.spotlightDarknessPct = clamp(Math.round(partial.spotlightDarknessPct), 0, 100);
+  }
+  if (typeof partial.spotlightCount === "number" && Number.isFinite(partial.spotlightCount)) {
+    next.spotlightCount = sanitizeSpotlightCount(partial.spotlightCount, next.spotlightCount ?? DEFAULT_SPOTLIGHT_COUNT);
+  } else if (next.spotlightCount == null) {
+    next.spotlightCount = DEFAULT_SPOTLIGHT_COUNT;
+  }
+  if (Array.isArray(partial.spotlightHoles)) {
+    next.spotlightHoles = sanitizeSpotlightHoles(
+      partial.spotlightHoles,
+      next.spotlightHoles ?? cloneSpotlightHoles(DEFAULT_SPOTLIGHT_HOLES),
+    );
+  } else if (!next.spotlightHoles?.length) {
+    next.spotlightHoles = cloneSpotlightHoles(DEFAULT_SPOTLIGHT_HOLES);
+  }
+  if (Array.isArray(partial.layoutPresets)) {
+    next.layoutPresets = sanitizeLayoutPresets(partial.layoutPresets, next.layoutPresets ?? []);
+  } else if (!next.layoutPresets) {
+    next.layoutPresets = [];
   }
   if (typeof partial.fontFamily === "string") {
     next.fontFamily = sanitizeFontFamily(partial.fontFamily, current.fontFamily || DEFAULT_FONT);
@@ -107,6 +140,8 @@ function snapshotOf(current: OverlaySettings): OverlaySettings {
     commands: cloneCommandFlags(current.commands),
     customCommands: cloneCustomCommands(current.customCommands),
     timedMessages: cloneTimedMessages(current.timedMessages),
+    spotlightHoles: cloneSpotlightHoles(current.spotlightHoles),
+    layoutPresets: cloneLayoutPresets(current.layoutPresets),
   };
 }
 

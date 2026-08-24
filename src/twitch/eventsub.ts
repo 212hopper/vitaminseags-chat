@@ -20,18 +20,23 @@ import {
 import {
   isChannelStaff,
   parseChatVisibilityCommand,
+  parseDvdCommand,
   parseHelpCommand,
   parsePartyCommand,
+  parsePresetCommand,
+  parseSpotlightCommand,
   parseUsernameCommand,
 } from "../chat/commands.js";
 import { log } from "../log.js";
 import { BadgeCatalog } from "./badges.js";
 import type { BotChat } from "./chat-send.js";
 import { collapseZeroWidth, EmoteCatalog, twitchEmoteUrl } from "./emotes.js";
+import { findLayoutPreset, listLayoutPresetHelp, lookFieldsFrom } from "../store/presets.js";
 
 const EMOTE_REFRESH_MS = 30 * 60 * 1000;
 const HELP_COOLDOWN_MS = 8_000;
 const CUSTOM_REPLY_COOLDOWN_MS = 4_000;
+const PRESET_COOLDOWN_MS = 4_000;
 
 function buildFragments(
   event: EventSubChannelChatMessageEvent,
@@ -106,6 +111,7 @@ export async function startEventSub(options: {
   const emotes = new EmoteCatalog();
   const badges = new BadgeCatalog();
   let lastHelpAt = 0;
+  let lastPresetAt = 0;
   const customReplyAt = new Map<string, number>();
 
   await Promise.all([emotes.refresh(broadcasterId), badges.refresh(api, broadcasterId)]);
@@ -141,6 +147,42 @@ export async function startEventSub(options: {
       }
     }
 
+    const spotlight = parseSpotlightCommand(event.messageText);
+    if (spotlight) {
+      const commandId = spotlight === "on" ? "sbon" : "sboff";
+      if (isCommandEnabled(live.commands, commandId)) {
+        if (canUseWho(commandWho(live.commands, commandId), staff)) {
+          void settings.update({ spotlightEnabled: spotlight === "on" }).then((overlay) => {
+            bus.emit({ type: "overlay.settings", payload: overlay });
+          });
+        }
+        return;
+      }
+    }
+
+    const presetCommand = parsePresetCommand(event.messageText);
+    if (presetCommand && isCommandEnabled(live.commands, "preset")) {
+      if (canUseWho(commandWho(live.commands, "preset"), staff)) {
+        const now = Date.now();
+        if (now - lastPresetAt >= PRESET_COOLDOWN_MS) {
+          lastPresetAt = now;
+          if ("list" in presetCommand) {
+            void botChat.send(listLayoutPresetHelp(live.layoutPresets), event.messageId);
+          } else {
+            const found = findLayoutPreset(live.layoutPresets, presetCommand.name);
+            if (!found) {
+              void botChat.send(`No layout preset named ${presetCommand.name}.`, event.messageId);
+            } else {
+              void settings.update(lookFieldsFrom(found)).then((overlay) => {
+                bus.emit({ type: "overlay.settings", payload: overlay });
+              });
+            }
+          }
+        }
+      }
+      return;
+    }
+
     const usernameCommand = parseUsernameCommand(event.messageText);
     if (usernameCommand && isCommandEnabled(live.commands, "username")) {
       if (canUseWho(commandWho(live.commands, "username"), staff) && usernameCommand !== "invalid") {
@@ -166,6 +208,16 @@ export async function startEventSub(options: {
         commandHits(live.commands, "party", staff)
       ) {
         bus.emit({ type: "overlay.party", payload: { durationMs: 10_000 } });
+      }
+      return;
+    }
+
+    if (parseDvdCommand(event.messageText) && isCommandEnabled(live.commands, "dvd")) {
+      if (
+        canUseWho(commandWho(live.commands, "dvd"), staff) &&
+        commandHits(live.commands, "dvd", staff)
+      ) {
+        bus.emit({ type: "overlay.dvd", payload: { durationMs: 60_000 } });
       }
       return;
     }

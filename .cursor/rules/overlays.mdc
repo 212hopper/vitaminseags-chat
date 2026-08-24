@@ -13,7 +13,7 @@ OBS Browser Source is CEF (older Chromium). Keep overlays **vanilla HTML/CSS/JS*
 - Render chat with `createElement` + `textContent`. Never `innerHTML` for user content.
 - Emote/badge `src` must be `https:` URLs already resolved by the server.
 - Put look-and-feel in CSS variables. Do not hardcode Twitch fetches in overlay JS.
-- Handle `hello`, `overlay.settings`, `overlay.party`, `chat.message`, `chat.message.delete`, and `chat.clear`. Ignore unknown `type`s so future events do not break chat.
+- Handle `hello`, `overlay.settings`, `overlay.party`, `overlay.dvd`, `chat.message`, `chat.message.delete`, and `chat.clear`. Ignore unknown `type`s so future events do not break chat. Spotlight on/off arrives as `overlay.settings` (`spotlightEnabled`, `spotlightDarknessPct`, `spotlightCount`, `spotlightHoles` with per-hole `x`, `y`, `w`, `h`, `feather`, `shape`).
 
 ```js
 // BAD

@@ -122,6 +122,7 @@
       const who = document.createElement("td");
       const description = document.createElement("td");
       const help = document.createElement("td");
+      const chance = document.createElement("td");
       const enabled = document.createElement("td");
       const staffHit = document.createElement("td");
 
@@ -146,6 +147,28 @@
         patchCommand(command.id, { chatHelp }),
       );
       help.append(helpField);
+
+      if (command.hasChance) {
+        const chanceField = document.createElement("input");
+        chanceField.type = "number";
+        chanceField.min = "0";
+        chanceField.max = "100";
+        chanceField.step = "1";
+        chanceField.className = "chance";
+        chanceField.value = String(command.chancePct ?? 0);
+        chanceField.title = "Percent chance this command hits for viewers";
+        bindText(chanceField, () => Number(chanceField.value), (chancePct) =>
+          patchCommand(command.id, { chancePct }).then((body) => {
+            render(body.commands ?? []);
+            const saved = (body.commands ?? []).find((item) => item.id === command.id);
+            setFlash(`${command.names[0]} hit chance is now ${saved?.chancePct ?? chancePct}%.`, false);
+          }),
+        );
+        chance.append(chanceField);
+      } else {
+        chance.className = "muted";
+        chance.textContent = "—";
+      }
 
       const enabledToggle = document.createElement("input");
       enabledToggle.type = "checkbox";
@@ -183,7 +206,7 @@
         staffHit.textContent = "—";
       }
 
-      tr.append(names, who, description, help, enabled, staffHit);
+      tr.append(names, who, description, help, chance, enabled, staffHit);
       builtinRows.append(tr);
     }
   }
@@ -324,7 +347,7 @@
     } catch {
       builtinRows.replaceChildren();
       customRows.replaceChildren();
-      builtinRows.append(emptyRow("Could not load commands.", 6));
+      builtinRows.append(emptyRow("Could not load commands.", 7));
       customRows.append(emptyRow("Could not load commands.", 6));
     }
   }

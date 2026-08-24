@@ -12,7 +12,7 @@
     "start": "tsx src/index.ts",
     "start:prod": "node dist/index.js",
     "build": "tsc",
-    "test": "tsc --noEmit -p tsconfig.test.json && tsx --test src/chat/colour.test.ts src/chat/catalog.test.ts src/chat/commands.test.ts src/chat/timed.test.ts src/store/settings.test.ts src/store/messages.test.ts src/store/hidden.test.ts src/server/session.test.ts src/log.test.ts src/twitch/auth.test.ts"
+    "test": "tsc --noEmit -p tsconfig.test.json && tsx --test src/chat/colour.test.ts src/chat/catalog.test.ts src/chat/commands.test.ts src/chat/timed.test.ts src/store/settings.test.ts src/store/presets.test.ts src/store/messages.test.ts src/store/hidden.test.ts src/server/session.test.ts src/log.test.ts src/twitch/auth.test.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",

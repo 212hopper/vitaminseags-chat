@@ -68,6 +68,7 @@ Types:
 - `chat.clear`
 - `overlay.settings`
 - `overlay.party`
+- `overlay.dvd`
 - `channel.activity` — follow, sub, gift, cheer, raid (dashboard today; overlay later)
 
 Name new types with a dotted namespace. Extend the `AppEvent` union first.
@@ -92,8 +93,9 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 - Connect to `ws(s)://{host}/ws` and reconnect with backoff.
 - `textContent` / `createElement` for chatter text. Never `innerHTML` with user text.
 - Only `https:` image URLs (emotes, badges).
-- Handle `hello`, `overlay.settings`, `overlay.party`, `chat.message`, `chat.message.delete`, `chat.clear`. Ignore unknown `type`s.
-- OBS: leave “Shutdown source when not visible” off. Allow the source to control audio for party sound (`public/overlays/chat/party.wav`, replaceable ~2.4 MB clip).
+- Handle `hello`, `overlay.settings`, `overlay.party`, `overlay.dvd`, `chat.message`, `chat.message.delete`, `chat.clear`. Ignore unknown `type`s.
+- `!sbon` / `!sboff` persist `spotlightEnabled` on overlay settings. Hole count, shape (circle or rectangle), size (W×H), position, feather (edge falloff), and dimness live on Settings with the chat box. Party hides the dimming until it ends. `!preset name` applies a saved look. `?preview=sbon` and `?preview=dvd` on the overlay URL are OBS test hooks.
+- OBS: leave “Shutdown source when not visible” off. Allow the source to control audio for party sound (`public/overlays/chat/party.wav`, replaceable ~2.4 MB clip). `?preview=dvd` bounces the DVD logo for 60 seconds; `?preview=sbon` shows the song-battle spotlights.
 
 ## Ops
 
@@ -106,7 +108,7 @@ Chat payloads include parsed `fragments` (text, emotes, mentions, cheers) and re
 
 ## Tests
 
-`npm test` type-checks `src/**/*.ts` (including tests) then runs `tsx --test` on the unit files (colour, commands, catalog, timers, settings sanitise, message log cap, sessions, log level). GitHub Actions runs the same plus `tsc --noEmit` for the production emit config. Test files are excluded from `dist/`.
+`npm test` type-checks `src/**/*.ts` (including tests) then runs `tsx --test` on the unit files (colour, commands, catalog, timers, settings sanitise, presets, message log cap, sessions, log level). GitHub Actions runs the same plus `tsc --noEmit` for the production emit config. Test files are excluded from `dist/`.
 
 ## Adding a feature (example: alerts overlay)
 

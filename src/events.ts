@@ -49,6 +49,7 @@ export type AppEvent =
   | { type: "chat.clear"; payload: Record<string, never> }
   | { type: "overlay.settings"; payload: OverlaySettings }
   | { type: "overlay.party"; payload: { durationMs: number } }
+  | { type: "overlay.dvd"; payload: { durationMs: number } }
   | { type: "channel.activity"; payload: ActivityPayload };
 
 export type EventBus = {

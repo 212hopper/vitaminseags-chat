@@ -12,7 +12,7 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before adding features. Projec
 - Chat overlay at `public/overlays/chat/` (1920×1080 stage; this **is** the OBS frontend)
 - Dashboard on the same container: live status, activity, overlay settings, commands, timed chat, remaps, hidden chatters, stats, app users
 - Data on a volume: `data/tokens.json`, `overlay-settings.json`, `remaps.json`, `hidden.json`, `users.json`, `messages/`, `sessions.json`, `app-users.json`
-- Chat commands: `!colour` / `!color`, `!username`, `!showchat` / `!hidechat`, `!party`, `!help`, plus custom replies or `!help`-only tips from the Commands page
+- Chat commands: `!colour` / `!color`, `!username`, `!showchat` / `!hidechat`, `!party`, `!dvd`, `!sbon` / `!sboff`, `!preset`, `!help`, plus custom replies or `!help`-only tips from the Commands page
 - Timed chat messages (optional live-only; can post live `!help` or a custom command reply)
 - Bot-sent lines stay in Twitch chat and are not drawn on the overlay
 - App login (`ADMIN_USERNAME` / `ADMIN_PASSWORD`); overlay, `/ws`, `/health`, and `/oauth/callback` stay public

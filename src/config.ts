@@ -3,6 +3,14 @@ import { fileURLToPath } from "node:url";
 import { cloneCommandFlags, cloneCustomCommands, DEFAULT_COMMANDS, type CommandFlags, type CustomCommand } from "./chat/catalog.js";
 import { cloneTimedMessages, type TimedMessage } from "./chat/timed.js";
 import { parseLogLevel, parseFastifyLogLevel, type FastifyLogLevel, type LogLevel } from "./log.js";
+import {
+  cloneLayoutPresets,
+  cloneSpotlightHoles,
+  DEFAULT_SPOTLIGHT_COUNT,
+  DEFAULT_SPOTLIGHT_HOLES,
+  type LayoutPreset,
+  type SpotlightHole,
+} from "./store/presets.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -38,6 +46,11 @@ export type OverlayConfig = {
   fadeOutMs: number;
   hideCommands: boolean;
   chatVisible: boolean;
+  spotlightEnabled: boolean;
+  spotlightDarknessPct: number;
+  spotlightCount: number;
+  spotlightHoles: SpotlightHole[];
+  layoutPresets: LayoutPreset[];
   fontFamily: string;
   fontSizePx: number;
   posX: number;
@@ -108,6 +121,11 @@ export function loadConfig(): AppConfig {
       fadeOutMs: envNumber("OVERLAY_FADE_MS", 600),
       hideCommands: envBool("OVERLAY_HIDE_COMMANDS", true),
       chatVisible: true,
+      spotlightEnabled: false,
+      spotlightDarknessPct: 40,
+      spotlightCount: DEFAULT_SPOTLIGHT_COUNT,
+      spotlightHoles: cloneSpotlightHoles(DEFAULT_SPOTLIGHT_HOLES),
+      layoutPresets: cloneLayoutPresets([]),
       fontFamily: DEFAULT_FONT,
       fontSizePx: 17,
       posX: 16,

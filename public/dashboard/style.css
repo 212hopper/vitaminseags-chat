@@ -197,9 +197,15 @@ textarea {
 }
 
 table input[type="text"],
+table input[type="number"],
 table select,
 table textarea {
   min-width: 7.5rem;
+}
+
+table input.chance {
+  width: 4.75rem;
+  min-width: 4.75rem;
 }
 
 table textarea {
@@ -294,8 +300,18 @@ td.actions button {
   text-transform: uppercase;
 }
 
+.subhead {
+  margin: 1.4rem 0 0.75rem;
+  font-size: 1rem;
+}
+
 .canvas-wrap {
   max-width: 640px;
+}
+
+.canvas-wrap--wide {
+  max-width: 48rem;
+  margin-top: 1rem;
 }
 
 .canvas-preview {
@@ -306,6 +322,8 @@ td.actions button {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
   background:
     linear-gradient(transparent 99%, rgb(255 255 255 / 8%) 99%),
     linear-gradient(90deg, transparent 99%, rgb(255 255 255 / 8%) 99%),
@@ -313,10 +331,44 @@ td.actions button {
   background-size: 10% 10%, 10% 10%, auto;
 }
 
+#canvas-spots {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 .canvas-chat {
   position: absolute;
+  z-index: 2;
   border: 2px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.canvas-spot {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed rgb(255 80 80 / 70%);
+  background: radial-gradient(circle, transparent 58%, rgb(255 80 80 / 16%) 100%);
+  pointer-events: none;
+}
+
+.canvas-spot.is-rect {
+  border-radius: 2px;
+}
+
+.canvas-spot.is-selected {
+  z-index: 3;
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+table.spotlight-table input[type="number"],
+table.spotlight-table select {
+  min-width: 4.25rem;
+}
+
+table tr.is-selected td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .canvas-label {

@@ -3,8 +3,11 @@ import { test } from "node:test";
 import {
   isChannelStaff,
   parseChatVisibilityCommand,
+  parseDvdCommand,
   parseHelpCommand,
   parsePartyCommand,
+  parsePresetCommand,
+  parseSpotlightCommand,
   parseUsernameCommand,
 } from "./commands.js";
 
@@ -20,6 +23,14 @@ test("parse visibility, party, and help", () => {
   assert.equal(parseChatVisibilityCommand("!show chat"), null);
   assert.equal(parsePartyCommand("!party"), true);
   assert.equal(parsePartyCommand("!forceparty"), false);
+  assert.equal(parseDvdCommand("!dvd"), true);
+  assert.equal(parseDvdCommand("!dvds"), false);
+  assert.equal(parseSpotlightCommand("!sbon"), "on");
+  assert.equal(parseSpotlightCommand("!sboff"), "off");
+  assert.equal(parseSpotlightCommand("!sb on"), null);
+  assert.deepEqual(parsePresetCommand("!preset"), { list: true });
+  assert.deepEqual(parsePresetCommand("!preset Song Battle"), { name: "Song Battle" });
+  assert.equal(parsePresetCommand("!presets"), null);
   assert.equal(parseHelpCommand("!help"), true);
 });
 
